@@ -2,7 +2,7 @@
   "name": "Ploopy A+ Trackball",
   "vendorId": "0x5043",
   "productId": "0x81DB",
-  "lighting": "none",
+  "lighting": "qmk_rgblight",
   "matrix": {
     "rows": 1,
     "cols": 8

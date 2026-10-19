@@ -304,8 +304,9 @@ def control_panel():
     out.append(text(cx, y + 15, "Switch To Base Layer", 11.5, 700, RED, "start"))
     out.append(text(cx - 4, y + 30, "Turn:", 7.4, 700, GREY, "end"))
     out.append(text(cx, y + 30, "Volume", 11.5, 700, INK, "start"))
-    out.append(text(18, PANEL_H - 30, "LEDs blink briefly when a setting changes.", 6.4, 500, INK))
-    out.append(text(18, PANEL_H - 22, "Settings are saved and survive unplugging.", 6.4, 500, INK))
+    out.append(text(18, PANEL_H - 38, "LEDs blink briefly when a setting changes.", 6.4, 500, INK))
+    out.append(text(18, PANEL_H - 30, "Settings are saved and survive unplugging.", 6.4, 500, INK))
+    out.append(text(18, PANEL_H - 22, "LED colours & brightness: Vial \u2192 Lighting tab.", 6.4, 700, INK))
     return "".join(out)
 
 

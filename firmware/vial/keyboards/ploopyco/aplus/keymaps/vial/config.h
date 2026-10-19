@@ -16,3 +16,10 @@
 /* Vial unlock combo: hold the two big bottom buttons (matrix 0,0 and 0,5). */
 #define VIAL_UNLOCK_COMBO_ROWS { 0, 0 }
 #define VIAL_UNLOCK_COMBO_COLS { 0, 5 }
+
+/* LED colours are edited from Vial's Lighting tab; keymap.c handles the
+   lighting commands itself instead of QMK's stock rgblight handler. */
+#define VIA_CUSTOM_LIGHTING_ENABLE
+
+/* Storage for the settings and per-layer LED colours (see persistent_t). */
+#define EECONFIG_USER_DATA_SIZE 16

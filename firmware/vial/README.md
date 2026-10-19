@@ -17,6 +17,7 @@ ported to [vial-qmk](https://github.com/vial-kb/vial-qmk), with these changes:
 | Control layer LED | Red | **Green** |
 | Configurator | VIA (needs a JSON sideload) | **Vial** (auto-detected, no JSON needed) |
 | Mouse gestures | Hard-coded | **Editable in Vial** (layer 3) |
+| LED colours | Fixed | **Editable in Vial's Lighting tab**, per layer |
 
 Everything else (DPI cycling, drag scroll, LED brightness, mirror mode, OS-aware
 shortcuts, settings saved across power cycles) works as on the stock firmware.
@@ -85,6 +86,25 @@ and plug in the A+. It is detected automatically.
 - Flashing a new build resets the Vial keymap to the defaults built into it.
 - **Unlocking** (needed only for the matrix tester or assigning `QK_BOOT`): hold
   the two big bottom buttons when Vial asks.
+
+## LED colours
+
+In Vial, open the **Lighting** tab:
+
+- **Underglow Color** sets the colour of whatever the A+ is showing right now:
+  - the active base layer (left-handed, or right-handed after Mirror),
+  - the control layer, while it's on (press its wheel),
+  - the gesture colour, while you hold the gesture key.
+- **Underglow Brightness** is one brightness for every colour (0 = off). The
+  control layer's LED brightness button still steps 25/50/75/100%.
+- **Underglow Effect**: "All Off" turns the LEDs off; any other choice is a
+  solid colour (animated effects aren't supported with layer colours).
+- Changes save themselves about 1.5 s after the last one; **Save** saves at once.
+
+Defaults: left-handed red, right-handed blue, control green, gesture as on
+Ploopy's firmware. The short confirmation blink keeps its fixed colour.
+Flashing this build resets the saved settings once, since they moved to a
+bigger storage area.
 
 ## Mouse gesture layer (layer 3)
 

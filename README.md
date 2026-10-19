@@ -26,7 +26,7 @@ firmware, flash [`firmwares/aplus.uf2`](firmwares/aplus.uf2) the same way.
 | Startup layer | Right-handed (layer 0) | **Left-handed (layer 0)**, custom layout |
 | Right-handed layout | Layer 0 | Layer 1, reached with **Mirror** on the control layer |
 | Wheels | Fixed: vertical + horizontal scroll | **Remappable per layer in Vial**; default volume + vertical scroll |
-| LEDs | Left-handed green, control red | **Left-handed red**, right-handed blue, **control green** |
+| LEDs | Fixed: left-handed green, control red | **Colours and brightness editable in Vial**; default left-handed red, right-handed blue, control green |
 | Configurator | VIA, with a JSON file to load | **Vial**, detected automatically |
 | Mouse gestures | Fixed | **Editable in Vial** (layer 3) |
 
@@ -58,6 +58,12 @@ and plug in the A+.
   clockwise from the top-left key (the small arrows on the keymap). A
   transparent key keeps the built-in OS-aware action; a Vial macro (`M0`, `M1` …)
   can do anything else.
+- **LEDs:** open the **Lighting** tab. The colour picker sets the colour of
+  whatever is lit right now: switch the A+ to a layer (Mirror for the
+  right-handed layer, a wheel press for the control layer) and pick its colour.
+  To change the gesture colour, hold the gesture key while picking. Brightness
+  applies to all colours; Effect "All Off" turns the LEDs off. Changes save
+  automatically after a moment.
 - **Unlocking** (only needed for the matrix tester or `QK_BOOT`): hold the two
   big bottom buttons when Vial asks.
 

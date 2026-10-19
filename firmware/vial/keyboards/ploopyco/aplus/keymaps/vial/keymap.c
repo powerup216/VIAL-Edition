@@ -17,7 +17,11 @@
  */
 #include QMK_KEYBOARD_H
 
+#include <string.h>
+#include <stddef.h>
 #include "rgblight.h"
+#include "eeconfig.h"
+#include "via.h"
 #include "printf.h"
 
 #include "../../../common/tmag5273wheel.h"
@@ -40,14 +44,25 @@ uint16_t leftwheel_current_position = 0;
 uint16_t rightwheel_current_position = 0;
 uint32_t last_scroll_time = 0;
 
-/* Layer lighting, used to blink when making gestures.
-   Custom: left-handed layer is red and the control layer is green
-   (swapped from the stock firmware). */
-const rgblight_segment_t PROGMEM righty_nav_layer_colour[] =        RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_NAVBLUE} );
-const rgblight_segment_t PROGMEM lefty_nav_layer_colour[] =         RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_RED} );
-const rgblight_segment_t PROGMEM control_layer_colour[] =           RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_NAVGREEN} );
-const rgblight_segment_t PROGMEM gesture_layer_colour[] =           RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_GESTUREYELLOW} );
-const rgblight_segment_t PROGMEM option_changed_layer_colour[] =    RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_OPTIONCHANGED} );
+/* ============================== LED colours ==============================
+
+   The layer colours are customizable from Vial's Lighting tab:
+   - Colour:     sets the colour of whatever is lit right now: the gesture
+                 colour while the gesture key is held, else the control layer,
+                 else the active base layer (left- or right-handed).
+   - Brightness: one brightness for everything. 0 = off.
+   - Effect:     "All Off" turns the LEDs off; anything else is solid colour.
+   Changes are saved automatically a moment later (or with Vial's Save).
+   The confirmation blink colour stays fixed. */
+
+/* Colour layers. Not const: the hue/sat of the first segment is edited at
+   runtime. rgblight reads these through memcpy_P, which is a plain memcpy on
+   the RP2040, so RAM arrays work. */
+static rgblight_segment_t righty_nav_layer_colour[] =       RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_NAVBLUE} );
+static rgblight_segment_t lefty_nav_layer_colour[] =        RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_RED} );
+static rgblight_segment_t control_layer_colour[] =          RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_NAVGREEN} );
+static rgblight_segment_t gesture_layer_colour[] =          RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_GESTUREYELLOW} );
+const rgblight_segment_t PROGMEM option_changed_layer_colour[] = RGBLIGHT_LAYER_SEGMENTS( {0, 2, HSV_OPTIONCHANGED} );
 
 /* Lighting layer definitions. Later layers take precedence, so these
    are defined in the order that they will be displayed in. */
@@ -65,11 +80,35 @@ enum {
     LEFTY_NAV_LAYER_COLOUR,
     CONTROL_LAYER_COLOUR,
     GESTURE_LAYER_COLOUR,
-    OPTION_CHANGED_LAYER_COLOUR    
+    OPTION_CHANGED_LAYER_COLOUR,
+    NUM_RGB_LAYERS
 };
 
- /* EEPROM memory for the various persistent states that the A+ can have. 
-    See eeconfig_init_user() for default values and meanings. */
+/* Editable colour slots, in storage order. */
+enum {
+    LED_SLOT_LEFT = 0,
+    LED_SLOT_RIGHT,
+    LED_SLOT_CONTROL,
+    LED_SLOT_GESTURE,
+    NUM_LED_SLOTS
+};
+
+static rgblight_segment_t *const led_slot_segment[NUM_LED_SLOTS] = {
+    lefty_nav_layer_colour, righty_nav_layer_colour, control_layer_colour, gesture_layer_colour,
+};
+
+/* Default hue/sat per slot. */
+static const uint8_t led_slot_default[NUM_LED_SLOTS][2] = {
+    { 0,   255 },   /* Left-handed: red      (HSV_RED)           */
+    { 180, 220 },   /* Right-handed: blue    (HSV_NAVBLUE)       */
+    { 66,  240 },   /* Control: green        (HSV_NAVGREEN)      */
+    { 10,  250 },   /* Gesture: Ploopy's     (HSV_GESTUREYELLOW) */
+};
+
+#define LED_DEFAULT_BRIGHTNESS (RGBLIGHT_VAL_STEP * 4)
+#define LED_SAVE_DELAY_MS 1500
+
+ /* Persistent settings. See eeconfig_init_user() for default values. */
 typedef union {
   uint32_t raw;
   struct {
@@ -77,15 +116,66 @@ typedef union {
     bool    horizontal_scroll_arrows :1;   /* Native horizontal scroll sends left/right arrows. */
     bool    vertical_scroll_arrows :1;     /* Native vertical scroll sends up/down arrows. */
     bool    drag_scroll_mode :1;
-    uint8_t led_brightness: 8;
+    uint8_t unused_led_brightness: 8;      /* Moved to led_brightness below. */
     uint8_t config_version: 2;             /* Settings are reset once when this changes. */
   };
 } user_config_t;
 
+/* Everything saved to EEPROM, kept in QMK's user data block (EECONFIG_USER_DATA_SIZE
+   in config.h). With a data block enabled, QMK uses the old 32-bit user
+   config slot as the block's version marker, so user_config lives here too. */
+typedef struct {
+    uint32_t user_config_raw;
+    uint8_t  led_brightness;               /* rgblight value, 0-255. */
+    uint8_t  leds_on;                      /* 0 = "All Off" chosen in Vial. */
+    uint8_t  led_colour[NUM_LED_SLOTS][2]; /* hue, sat per slot. */
+} persistent_t;
+
+_Static_assert(sizeof(persistent_t) <= EECONFIG_USER_DATA_SIZE, "Increase EECONFIG_USER_DATA_SIZE");
+
 user_config_t user_config;
+static persistent_t persist;
+static bool     led_save_pending = false;
+static uint32_t led_save_timer   = 0;
 
 /* Bump to reset the saved A+ settings once on the next flash (0-3). */
 #define USER_CONFIG_VERSION 3 /* Earlier builds stored 0-2 here. */
+
+/* Save just the user_config part / everything. */
+static void save_user_config(void) {
+    persist.user_config_raw = user_config.raw;
+    eeconfig_update_user_datablock(&persist.user_config_raw, offsetof(persistent_t, user_config_raw), sizeof(persist.user_config_raw));
+}
+static void save_led_config(void) {
+    led_save_pending = false;
+    eeconfig_update_user_datablock(&persist.led_brightness, offsetof(persistent_t, led_brightness),
+                                   sizeof(persistent_t) - offsetof(persistent_t, led_brightness));
+}
+static void schedule_led_save(void) {
+    led_save_pending = true;
+    led_save_timer   = timer_read32();
+}
+
+/* Push saved colours and brightness to the LEDs. */
+static void apply_led_config(void) {
+    for (uint8_t i = 0; i < NUM_LED_SLOTS; i++) {
+        led_slot_segment[i][0].hue = persist.led_colour[i][0];
+        led_slot_segment[i][0].sat = persist.led_colour[i][1];
+    }
+    /* Layers keep the base value (RGBLIGHT_LAYERS_RETAIN_VAL), so this is the
+       brightness of every colour; 0 turns them all off. */
+    rgblight_sethsv_noeeprom(0, 0, persist.leds_on ? persist.led_brightness : 0);
+    /* Re-assert each layer so rgblight redraws with the new colours. */
+    for (uint8_t i = 0; i < NUM_RGB_LAYERS; i++) {
+        rgblight_set_layer_state(i, rgblight_get_layer_state(i));
+    }
+}
+
+static void led_config_defaults(void) {
+    persist.led_brightness = LED_DEFAULT_BRIGHTNESS;
+    persist.leds_on        = true;
+    memcpy(persist.led_colour, led_slot_default, sizeof(persist.led_colour));
+}
 
 /* Custom keycodes. These start at QK_KB_2 (right after ploopyco.c's DPI_CONFIG
    and DRAG_SCROLL) so that they line up with "customKeycodes" in vial.json and
@@ -357,10 +447,12 @@ void eeconfig_init_user(void) {
     user_config.horizontal_scroll_arrows = false;   // False = Scroll events, True = left/right arrows.
     user_config.vertical_scroll_arrows = false;     // False = Scroll events, True = up/down arrows.
     user_config.drag_scroll_mode = false;           // Hold to activate.
-    user_config.led_brightness = 4;                 // Brightest mode by default.
     user_config.config_version = USER_CONFIG_VERSION;
+    persist.user_config_raw = user_config.raw;
 
-    eeconfig_update_user(user_config.raw);
+    led_config_defaults();                          // Stock colours, full brightness.
+
+    eeconfig_update_user_datablock(&persist, 0, sizeof(persist));
 }
 
 void keyboard_pre_init_user(void) {
@@ -408,12 +500,16 @@ void keyboard_post_init_user(void) {
 
     /* =================== Persistent Configuration Setup ================== */
 
-    /* Load up configuration details from the EEPROM. */
-    user_config.raw = eeconfig_read_user();
-
-    /* Settings saved by the stock firmware or an older build of this one
-       meant different things (e.g. which hand is the default), so start
-       fresh from the defaults once. */
+    /* Load up configuration details from the EEPROM. Settings saved by the
+       stock firmware or an older build of this one meant different things
+       (e.g. which hand is the default), so start fresh from the defaults once. */
+    if( eeconfig_is_user_datablock_valid() ) {
+        eeconfig_read_user_datablock(&persist, 0, sizeof(persist));
+        user_config.raw = persist.user_config_raw;
+    }
+    else {
+        user_config.raw = 0;
+    }
     if( user_config.config_version != USER_CONFIG_VERSION ) {
         eeconfig_init_user();
     }
@@ -434,8 +530,8 @@ void keyboard_post_init_user(void) {
     rgblight_enable_noeeprom();
     rgblight_mode_noeeprom(RGBLIGHT_MODE_STATIC_LIGHT);
 
-    /* Set an initial colour to establish a baseline brightness for the RGB layers. */
-    rgblight_sethsv(0, 0, RGBLIGHT_VAL_STEP * user_config.led_brightness);
+    /* Load the saved colours and brightness. */
+    apply_led_config();
 }  
 
 bool process_record_user(uint16_t keycode, keyrecord_t* record) {
@@ -444,7 +540,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
             if (record->event.pressed) {
                 /* Toggle handed-ness, record new state to EEPROM. */
                 user_config.right_handed ^= 1;
-                eeconfig_update_user(user_config.raw);
+                save_user_config();
 
                 /* Activate the correct navigation layer and blink the LEDs.
                    1 blink = left-handed, 2 blinks = right-handed. */
@@ -463,7 +559,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
         case PKC_TGL_VERT_SCRL:
             if (record->event.pressed) {
                 user_config.vertical_scroll_arrows ^= 1;
-                eeconfig_update_user(user_config.raw);
+                save_user_config();
 
                 if( user_config.vertical_scroll_arrows ) {
                     rgblight_blink_layer(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT*2);
@@ -478,7 +574,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
         case PKC_TGL_HORIZ_SCRL:
             if (record->event.pressed) {
                 user_config.horizontal_scroll_arrows ^= 1;
-                eeconfig_update_user(user_config.raw);
+                save_user_config();
 
                 if( user_config.horizontal_scroll_arrows ) {
                     rgblight_blink_layer(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT*2);
@@ -493,7 +589,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
         case PKC_TGL_DRAG_SCRL:
             if (record->event.pressed) {
                 user_config.drag_scroll_mode ^= 1;
-                eeconfig_update_user(user_config.raw);
+                save_user_config();
 
                 if( user_config.drag_scroll_mode ) {
                     rgblight_blink_layer(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT*2);
@@ -529,23 +625,22 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
             }
             return true;
         case PKC_ADJUST_LED_BRIGHTNESS:
-            /* Increase brightness in RGBLIGHT_VAL_STEP steps. 
-               Go to minimum brightness if the max brightness is hit. */
+            /* Step through 25/50/75/100% brightness, wrapping to 25%.
+               If the LEDs were switched off in Vial, turn them back on. */
             if (record->event.pressed) {
-                if( rgblight_get_val() >= RGBLIGHT_VAL_STEP * 4 ) {
-                    rgblight_decrease_val_noeeprom();
-                    rgblight_decrease_val_noeeprom();
-                    rgblight_decrease_val_noeeprom();
-                    user_config.led_brightness = 1;
-                    eeconfig_update_user(user_config.raw);
+                uint8_t step = persist.led_brightness / RGBLIGHT_VAL_STEP;   /* 0-4 */
+                if( !persist.leds_on ) {
+                    persist.leds_on = true;
+                    if( step == 0 ) step = 1;
                 }
                 else {
-                    rgblight_increase_val_noeeprom();
-                    user_config.led_brightness += 1;
-                    eeconfig_update_user(user_config.raw);
+                    step = (step >= 4) ? 1 : step + 1;
                 }
+                persist.led_brightness = step * RGBLIGHT_VAL_STEP;
+                apply_led_config();
+                save_led_config();
 
-                dprintf("Adjusted LED brightness. Current brightness = %d/255\n", rgblight_get_val());
+                dprintf("Adjusted LED brightness. Current brightness = %d/255\n", persist.led_brightness);
             }
             return true;
         case PKC_BLINKY_DPI_CONFIG:
@@ -760,4 +855,92 @@ report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
     }
 
     return mouse_report;
+}
+
+/* ======================= Vial Lighting tab handling =======================
+
+   VIA_CUSTOM_LIGHTING_ENABLE (config.h) routes Vial's rgblight commands here
+   instead of QMK's stock handler, so they edit the per-layer colours. */
+
+/* Which colour slot is lit right now, and so edited by Vial's colour picker. */
+static uint8_t current_led_slot(void) {
+    if( rgblight_get_layer_state(GESTURE_LAYER_COLOUR) ) {
+        return LED_SLOT_GESTURE;
+    }
+    if( layer_state_is(LAYER_CONTROL) ) {
+        return LED_SLOT_CONTROL;
+    }
+    return user_config.right_handed ? LED_SLOT_RIGHT : LED_SLOT_LEFT;
+}
+
+void raw_hid_receive_kb(uint8_t *data, uint8_t length) {
+    uint8_t *command_id = &data[0];
+    uint8_t *value_id   = &data[1];
+    uint8_t *value_data = &data[2];
+
+    switch( *command_id ) {
+        case id_lighting_get_value:
+            switch( *value_id ) {
+                case id_qmk_rgblight_brightness:
+                    value_data[0] = persist.led_brightness;
+                    break;
+                case id_qmk_rgblight_effect:
+                    value_data[0] = persist.leds_on ? RGBLIGHT_MODE_STATIC_LIGHT : 0;
+                    break;
+                case id_qmk_rgblight_effect_speed:
+                    value_data[0] = 0;
+                    break;
+                case id_qmk_rgblight_color: {
+                    uint8_t slot = current_led_slot();
+                    value_data[0] = persist.led_colour[slot][0];
+                    value_data[1] = persist.led_colour[slot][1];
+                    break;
+                }
+                default:
+                    *command_id = id_unhandled;
+                    return;
+            }
+            return;
+
+        case id_lighting_set_value:
+            switch( *value_id ) {
+                case id_qmk_rgblight_brightness:
+                    persist.led_brightness = value_data[0];
+                    break;
+                case id_qmk_rgblight_effect:
+                    /* "All Off" switches the LEDs off; every other effect is solid. */
+                    persist.leds_on = (value_data[0] != 0);
+                    break;
+                case id_qmk_rgblight_effect_speed:
+                    return;   /* No animated effects. */
+                case id_qmk_rgblight_color: {
+                    uint8_t slot = current_led_slot();
+                    persist.led_colour[slot][0] = value_data[0];
+                    persist.led_colour[slot][1] = value_data[1];
+                    break;
+                }
+                default:
+                    *command_id = id_unhandled;
+                    return;
+            }
+            apply_led_config();
+            schedule_led_save();
+            return;
+
+        case id_lighting_save:
+            save_led_config();
+            return;
+
+        default:
+            *command_id = id_unhandled;
+            return;
+    }
+}
+
+/* Save LED changes from Vial a moment after the last one, so dragging the
+   brightness slider doesn't write the flash on every step. */
+void housekeeping_task_user(void) {
+    if( led_save_pending && timer_elapsed32(led_save_timer) > LED_SAVE_DELAY_MS ) {
+        save_led_config();
+    }
 }
