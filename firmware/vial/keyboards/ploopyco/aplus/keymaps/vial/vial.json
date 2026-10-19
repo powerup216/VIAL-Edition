@@ -1,0 +1,48 @@
+{
+  "name": "Ploopy A+ Trackball",
+  "vendorId": "0x5043",
+  "productId": "0x81DB",
+  "lighting": "none",
+  "matrix": {
+    "rows": 1,
+    "cols": 8
+  },
+  "customKeycodes": [
+    { "name": "DPI_CONFIG",      "title": "Cycle DPI (no blink)",                         "shortName": "DPI" },
+    { "name": "DRAG_SCROLL",     "title": "Drag Scroll (basic)",                          "shortName": "DragScl" },
+    { "name": "PKC_TGL_MIRROR",  "title": "Mirror base layer (left/right-handed)",        "shortName": "Mirror" },
+    { "name": "PKC_TGL_VERT",    "title": "Toggle vertical wheel: scroll / arrows",       "shortName": "VWhl\nMode" },
+    { "name": "PKC_TGL_HORIZ",   "title": "Cycle horizontal wheel: volume / scroll / arrows", "shortName": "HWhl\nMode" },
+    { "name": "PKC_TGL_DRAG",    "title": "Toggle drag scroll: hold / toggle",            "shortName": "Drag\nMode" },
+    { "name": "PKC_GESTURE",     "title": "Mouse gesture (hold + move ball)",             "shortName": "Gesture" },
+    { "name": "PKC_DRAG_SCROLL", "title": "Drag Scroll (A+ hold/toggle aware)",           "shortName": "Drag\nScroll" },
+    { "name": "PKC_LED_BRIGHT",  "title": "Cycle LED brightness",                         "shortName": "LED\nBright" },
+    { "name": "PKC_DPI_BLINKY",  "title": "Cycle DPI (blinks to show level)",             "shortName": "DPI\nBlink" }
+  ],
+  "layouts": {
+    "keymap": [
+      [
+        { "h": 2 },
+        "0,1",
+        { "x": 0.25, "h": 1.25 },
+        "0,2",
+        { "x": 0.25, "h": 1.25 },
+        "0,3",
+        { "x": 0.25, "h": 2 },
+        "0,4"
+      ],
+      [
+        { "y": 1.25, "w": 1.75, "h": 2 },
+        "0,0",
+        { "x": 1.25, "w": 1.75, "h": 2 },
+        "0,5"
+      ],
+      [
+        { "x": 0.5, "y": 1.25, "w": 1.5, "h": 1.5 },
+        "0,6",
+        { "x": 0.75, "w": 1.5, "h": 1.5 },
+        "0,7"
+      ]
+    ]
+  }
+}
