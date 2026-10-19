@@ -9,8 +9,8 @@ ported to [vial-qmk](https://github.com/vial-kb/vial-qmk), with these changes:
 | Change | Stock | This firmware |
 |---|---|---|
 | Wheels | Fixed functions | **Remappable per layer in Vial** (any key, or smooth scrolling) |
-| Wheel defaults on the base layers | One scrolls, one horizontal-scrolls | **Left wheel = volume, right wheel = smooth vertical scroll** |
-| Startup layer | Layer 0 (right-handed) | **Layer 1** (right-handed, custom layout below); left-handed moved to layer 0 |
+| Wheel defaults on the base layers | One scrolls, one horizontal-scrolls | **Volume instead of horizontal scroll**; smooth vertical scroll kept |
+| Layers | 0 = right-handed (default), 1 = left-handed | **0 = left-handed (default, custom layout below)**, 1 = right-handed |
 | Left-handed base layer LED | Green | **Red** |
 | Control layer LED | Red | **Green** |
 | Configurator | VIA (needs a JSON sideload) | **Vial** (auto-detected, no JSON needed) |
@@ -30,7 +30,7 @@ To go back to stock, flash `firmwares/aplus.uf2` the same way.
 
 ## Default layout
 
-**Layer 1: right-handed base** (active at startup, blue LED)
+**Layer 0: left-handed base** (active at startup, red LED)
 
 | | | | |
 |---|---|---|---|
@@ -39,10 +39,15 @@ To go back to stock, flash `firmwares/aplus.uf2` the same way.
 | Left wheel press: TG(2) (control layer) | | | Right wheel press: Gesture |
 | Left wheel turn: Volume | | | Right wheel turn: Smooth vertical scroll |
 
-**Layer 0: left-handed base** (red LED), Ploopy's stock mirror layout. The
-control layer's **Mirror** button switches between layer 1 and layer 0, and the
-choice is saved. Layer 0 is always on underneath layer 1, so a transparent (▽)
-key on layer 1 falls through to layer 0.
+**Layer 1: right-handed base** (blue LED), Ploopy's stock right-handed layout:
+left wheel scrolls, right wheel is volume, left wheel press is Gesture, right
+wheel press is the control layer. The control layer's **Mirror** button
+switches between layer 0 and layer 1 (1 blink = left, 2 blinks = right), and
+the choice is saved. Layer 0 is always on underneath layer 1, so a transparent
+(▽) key on layer 1 falls through to layer 0.
+
+Flashing this build resets the saved A+ settings once (handedness, scroll
+modes, LED brightness), so it always starts on layer 0.
 
 **Layer 2: control** (green LED), as in Ploopy's keymap PDF. Both wheels turn
 the volume.
@@ -71,7 +76,7 @@ arrows, 2 blinks = scroll events).
 Open [vial.rocks](https://vial.rocks) in Chrome/Edge, or the Vial desktop app,
 and plug in the A+. It is detected automatically.
 
-- **Layer 0** — left-handed base. **Layer 1** — right-handed base (startup). **Layer 2** — control.
+- **Layer 0** — left-handed base (startup). **Layer 1** — right-handed base. **Layer 2** — control.
 - **Layers 4–7** are free for your own use.
 - A+ functions (gesture key, drag scroll, LED brightness, DPI, mode toggles,
   mirror, wheel scroll modes) are in the **User** tab.
@@ -82,7 +87,7 @@ and plug in the A+. It is detected automatically.
 ## Mouse gesture layer (layer 3)
 
 Layer 3 is never switched on. It is a table: each of its 8 keys is what one
-gesture direction sends. Hold the gesture key (right wheel press by default),
+gesture direction sends. Hold the gesture key (right wheel press on layer 0),
 move the ball in a direction, release.
 
 The keys go clockwise around the trackball, starting at the top-left button:

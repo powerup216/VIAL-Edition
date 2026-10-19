@@ -73,16 +73,19 @@ enum {
 typedef union {
   uint32_t raw;
   struct {
-    bool    left_handed :1;
+    bool    right_handed :1;               /* 0 = left-handed (default). */
     bool    horizontal_scroll_arrows :1;   /* Native horizontal scroll sends left/right arrows. */
     bool    vertical_scroll_arrows :1;     /* Native vertical scroll sends up/down arrows. */
     bool    drag_scroll_mode :1;
     uint8_t led_brightness: 8;
-    uint8_t reserved: 2;                   /* Used by an earlier build of this firmware. */
+    uint8_t config_version: 2;             /* Settings are reset once when this changes. */
   };
 } user_config_t;
 
 user_config_t user_config;
+
+/* Bump to reset the saved A+ settings once on the next flash (0-3). */
+#define USER_CONFIG_VERSION 3 /* Earlier builds stored 0-2 here. */
 
 /* Custom keycodes. These start at QK_KB_2 (right after ploopyco.c's DPI_CONFIG
    and DRAG_SCROLL) so that they line up with "customKeycodes" in vial.json and
@@ -103,9 +106,9 @@ enum my_keycodes {
   PKC_WHEEL_HSCROLL
 };
 
-/* Layer names. Layer 0 is the left-handed base and layer 1 the right-handed
-   base. Layer 0 is always on; layer 1 sits on top of it and is switched on
-   at startup unless mirror (left-handed) mode is saved. */
+/* Layer names. Layer 0 is the left-handed base (the default) and layer 1 the
+   right-handed base. Layer 0 is always on; layer 1 sits on top of it and is
+   switched on only when right-handed (mirror) mode is saved. */
 enum {
     LAYER_NAV_LEFT_HANDED = 0,
     LAYER_NAV_RIGHT_HANDED,
@@ -256,17 +259,17 @@ const uint16_t PROGMEM pointing_device_gestures[NUM_GESTURE_DIRECTIONS] =
 
 /* Keymap. */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-    // Layer 0: left-handed base (stock mirror layout). Active when mirror mode is on.
-    [LAYER_NAV_LEFT_HANDED] = LAYOUT(   MS_BTN2, PKC_DRAG_SCROLL, MS_BTN4, MS_BTN5,
-                                        MS_BTN3, MS_BTN1,
-                                        TG(LAYER_CONTROL), PKC_GESTURE ),
-    // Layer 1: right-handed base, the default at startup. Custom layout:
+    // Layer 0: left-handed base, the default at startup. Custom layout:
     //   top row      Mouse 3, F7, Mouse 4, Mouse 5
     //   big buttons  Mouse 1 (left), Mouse 2 (right)
     //   wheel press  Control layer (left), Gesture (right)
-    [LAYER_NAV_RIGHT_HANDED] = LAYOUT(  MS_BTN3, KC_F7, MS_BTN4, MS_BTN5,
+    [LAYER_NAV_LEFT_HANDED] = LAYOUT(   MS_BTN3, KC_F7, MS_BTN4, MS_BTN5,
                                         MS_BTN1, MS_BTN2,
                                         TG(LAYER_CONTROL), PKC_GESTURE ),
+    // Layer 1: right-handed base (Ploopy's stock layout). Active in mirror mode.
+    [LAYER_NAV_RIGHT_HANDED] = LAYOUT(  MS_BTN4, MS_BTN5, PKC_DRAG_SCROLL, MS_BTN2,
+                                        MS_BTN1, MS_BTN3,
+                                        PKC_GESTURE, TG(LAYER_CONTROL) ),
     // Layer for all of the customization options.
     [LAYER_CONTROL] = LAYOUT(           PKC_BLINKY_DPI_CONFIG, PKC_ADJUST_LED_BRIGHTNESS, PKC_TGL_VERT_SCRL, PKC_TGL_HORIZ_SCRL,
                                         PKC_TGL_MIRROR, PKC_TGL_DRAG_SCRL, 
@@ -295,7 +298,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     //                                  Left wheel     Right wheel
     [LAYER_NAV_LEFT_HANDED]  =        { WHEEL_VOLUME,  WHEEL_VSCROLL },
-    [LAYER_NAV_RIGHT_HANDED] =        { WHEEL_VOLUME,  WHEEL_VSCROLL },
+    [LAYER_NAV_RIGHT_HANDED] =        { WHEEL_VSCROLL, WHEEL_VOLUME  },
     [LAYER_CONTROL]          =        { WHEEL_VOLUME,  WHEEL_VOLUME  },
     [LAYER_GESTURES]         =        { WHEEL_TRNS,    WHEEL_TRNS    },
     [4]                      =        { WHEEL_TRNS,    WHEEL_TRNS    },
@@ -350,11 +353,12 @@ void eeconfig_init_user(void) {
 
     user_config.raw = 0;
 
-    user_config.left_handed = false;                // Right-handed.
+    user_config.right_handed = false;               // Left-handed (layer 0) by default.
     user_config.horizontal_scroll_arrows = false;   // False = Scroll events, True = left/right arrows.
     user_config.vertical_scroll_arrows = false;     // False = Scroll events, True = up/down arrows.
     user_config.drag_scroll_mode = false;           // Hold to activate.
     user_config.led_brightness = 4;                 // Brightest mode by default.
+    user_config.config_version = USER_CONFIG_VERSION;
 
     eeconfig_update_user(user_config.raw);
 }
@@ -407,9 +411,16 @@ void keyboard_post_init_user(void) {
     /* Load up configuration details from the EEPROM. */
     user_config.raw = eeconfig_read_user();
 
+    /* Settings saved by the stock firmware or an older build of this one
+       meant different things (e.g. which hand is the default), so start
+       fresh from the defaults once. */
+    if( user_config.config_version != USER_CONFIG_VERSION ) {
+        eeconfig_init_user();
+    }
+
     /* Set the startup layer based on handed-ness. Layer 0 (left-handed) is
-       always on underneath; the right-handed layer 1 is the default. */
-    if( !user_config.left_handed ) {
+       always on and is the default; layer 1 goes on top for right-handed. */
+    if( user_config.right_handed ) {
         layer_on(LAYER_NAV_RIGHT_HANDED);
     }
 
@@ -432,11 +443,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
         case PKC_TGL_MIRROR:
             if (record->event.pressed) {
                 /* Toggle handed-ness, record new state to EEPROM. */
-                user_config.left_handed ^= 1;
+                user_config.right_handed ^= 1;
                 eeconfig_update_user(user_config.raw);
 
-                /* Activate the correct navigation layer and blink the LEDs. */
-                if( user_config.left_handed ) {
+                /* Activate the correct navigation layer and blink the LEDs.
+                   1 blink = left-handed, 2 blinks = right-handed. */
+                if( !user_config.right_handed ) {
                     dprintf( "Lefty nav mode.\n");
                     layer_off(LAYER_NAV_RIGHT_HANDED);
                     rgblight_blink_layer(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT*2);
