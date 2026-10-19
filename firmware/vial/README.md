@@ -2,6 +2,8 @@
 
 Ready-to-flash file: [`firmwares/aplus_vial.uf2`](../../firmwares/aplus_vial.uf2)
 
+Keymap sheet: [`docs/img/keymap_vial.pdf`](../../docs/img/keymap_vial.pdf)
+
 This is Ploopy's A+ firmware (from the `ploopyco/a+` branch of
 [ploopyco/qmk_firmware](https://github.com/ploopyco/qmk_firmware/tree/ploopyco/a%2B))
 ported to [vial-qmk](https://github.com/vial-kb/vial-qmk), with these changes:
