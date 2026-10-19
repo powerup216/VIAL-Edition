@@ -8,40 +8,131 @@
     "cols": 8
   },
   "customKeycodes": [
-    { "name": "DPI_CONFIG",      "title": "Cycle DPI (no blink)",                         "shortName": "DPI" },
-    { "name": "DRAG_SCROLL",     "title": "Drag Scroll (basic)",                          "shortName": "DragScl" },
-    { "name": "PKC_TGL_MIRROR",  "title": "Mirror base layer (left/right-handed)",        "shortName": "Mirror" },
-    { "name": "PKC_TGL_VERT",    "title": "Toggle vertical wheel: scroll / arrows",       "shortName": "VWhl\nMode" },
-    { "name": "PKC_TGL_HORIZ",   "title": "Cycle horizontal wheel: volume / scroll / arrows", "shortName": "HWhl\nMode" },
-    { "name": "PKC_TGL_DRAG",    "title": "Toggle drag scroll: hold / toggle",            "shortName": "Drag\nMode" },
-    { "name": "PKC_GESTURE",     "title": "Mouse gesture (hold + move ball)",             "shortName": "Gesture" },
-    { "name": "PKC_DRAG_SCROLL", "title": "Drag Scroll (A+ hold/toggle aware)",           "shortName": "Drag\nScroll" },
-    { "name": "PKC_LED_BRIGHT",  "title": "Cycle LED brightness",                         "shortName": "LED\nBright" },
-    { "name": "PKC_DPI_BLINKY",  "title": "Cycle DPI (blinks to show level)",             "shortName": "DPI\nBlink" }
+    {
+      "name": "DPI_CONFIG",
+      "title": "Cycle DPI (no blink)",
+      "shortName": "DPI"
+    },
+    {
+      "name": "DRAG_SCROLL",
+      "title": "Drag Scroll (basic)",
+      "shortName": "DragScl"
+    },
+    {
+      "name": "PKC_TGL_MIRROR",
+      "title": "Mirror base layer (left/right-handed)",
+      "shortName": "Mirror"
+    },
+    {
+      "name": "PKC_TGL_VERT",
+      "title": "Toggle vertical scroll: scroll / arrows",
+      "shortName": "VScrl\nMode"
+    },
+    {
+      "name": "PKC_TGL_HORIZ",
+      "title": "Toggle horizontal scroll: scroll / arrows",
+      "shortName": "HScrl\nMode"
+    },
+    {
+      "name": "PKC_TGL_DRAG",
+      "title": "Toggle drag scroll: hold / toggle",
+      "shortName": "Drag\nMode"
+    },
+    {
+      "name": "PKC_GESTURE",
+      "title": "Mouse gesture (hold + move ball)",
+      "shortName": "Gesture"
+    },
+    {
+      "name": "PKC_DRAG_SCROLL",
+      "title": "Drag Scroll (A+ hold/toggle aware)",
+      "shortName": "Drag\nScroll"
+    },
+    {
+      "name": "PKC_LED_BRIGHT",
+      "title": "Cycle LED brightness",
+      "shortName": "LED\nBright"
+    },
+    {
+      "name": "PKC_DPI_BLINKY",
+      "title": "Cycle DPI (blinks to show level)",
+      "shortName": "DPI\nBlink"
+    },
+    {
+      "name": "PKC_WHEEL_VSCROLL",
+      "title": "Wheel: smooth vertical scroll (put on a wheel; CW slot = normal, only CCW slot = reversed)",
+      "shortName": "Wheel\nV-Scrl"
+    },
+    {
+      "name": "PKC_WHEEL_HSCROLL",
+      "title": "Wheel: smooth horizontal scroll (put on a wheel; CW slot = normal, only CCW slot = reversed)",
+      "shortName": "Wheel\nH-Scrl"
+    }
   ],
   "layouts": {
     "keymap": [
       [
-        { "h": 2 },
+        {
+          "h": 2
+        },
         "0,1",
-        { "x": 0.25, "h": 1.25 },
+        {
+          "x": 0.25,
+          "h": 1.25
+        },
         "0,2",
-        { "x": 0.25, "h": 1.25 },
+        {
+          "x": 0.25,
+          "h": 1.25
+        },
         "0,3",
-        { "x": 0.25, "h": 2 },
+        {
+          "x": 0.25,
+          "h": 2
+        },
         "0,4"
       ],
       [
-        { "y": 1.25, "w": 1.75, "h": 2 },
+        {
+          "y": 1.25,
+          "w": 1.75,
+          "h": 2
+        },
         "0,0",
-        { "x": 1.25, "w": 1.75, "h": 2 },
+        {
+          "x": 1.25,
+          "w": 1.75,
+          "h": 2
+        },
         "0,5"
       ],
       [
-        { "x": 0.5, "y": 1.25, "w": 1.5, "h": 1.5 },
+        {
+          "x": 0.5,
+          "y": 1.25,
+          "w": 1.5,
+          "h": 1.5
+        },
         "0,6",
-        { "x": 0.75, "w": 1.5, "h": 1.5 },
+        {
+          "x": 0.75,
+          "w": 1.5,
+          "h": 1.5
+        },
         "0,7"
+      ],
+      [
+        {
+          "x": 0.25,
+          "y": 0.25
+        },
+        "0,0\n\n\n\n\n\n\n\n\ne",
+        "0,1\n\n\n\n\n\n\n\n\ne",
+        {
+          "x": 0.25
+        },
+        "1,0\n\n\n\n\n\n\n\n\ne",
+        "1,1\n\n\n\n\n\n\n\n\ne"
       ]
     ]
   }

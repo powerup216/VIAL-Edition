@@ -4,6 +4,12 @@
 
 #define DYNAMIC_KEYMAP_LAYER_COUNT 8
 
+/* Wheels as encoders: 0 = left wheel, 1 = right wheel. */
+#define NUM_ENCODERS 2
+/* Don't build ploopyco.c's optical scroll-wheel driver; keymap.c drives the
+   A+'s magnetic wheels instead. */
+#define PLOOPY_NO_OPT_ENCODER
+
 /* Vial: unique ID for this keyboard definition. */
 #define VIAL_KEYBOARD_UID {0x88, 0x9B, 0xA3, 0x12, 0x6C, 0x71, 0x9C, 0x56}
 

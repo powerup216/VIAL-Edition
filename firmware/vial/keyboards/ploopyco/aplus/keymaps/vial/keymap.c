@@ -74,25 +74,15 @@ typedef union {
   uint32_t raw;
   struct {
     bool    left_handed :1;
-    bool    legacy_horizontal_scroll_arrows :1; /* Stock-firmware bit, no longer used. */
-    bool    vertical_scroll_arrows :1;
+    bool    horizontal_scroll_arrows :1;   /* Native horizontal scroll sends left/right arrows. */
+    bool    vertical_scroll_arrows :1;     /* Native vertical scroll sends up/down arrows. */
     bool    drag_scroll_mode :1;
     uint8_t led_brightness: 8;
-    uint8_t horizontal_wheel_mode: 2;           /* See hwheel_mode_t. 0 = volume. */
+    uint8_t reserved: 2;                   /* Used by an earlier build of this firmware. */
   };
 } user_config_t;
 
 user_config_t user_config;
-
-/* What the horizontal wheel does on the navigation layers. Cycled with the
-   "Toggle Horizontal Scroll Type" key on the control layer. Volume is 0 so that
-   it is also the default when coming from the stock firmware's EEPROM. */
-typedef enum {
-    HWHEEL_VOLUME = 0,  /* Same as the control-layer volume wheel. Blinks once.  */
-    HWHEEL_SCROLL,      /* Stock horizontal scroll events.         Blinks twice. */
-    HWHEEL_ARROWS,      /* Left/right arrow keypresses.            Blinks 3x.    */
-    HWHEEL_MODE_COUNT
-} hwheel_mode_t;
 
 /* Custom keycodes. These start at QK_KB_2 (right after ploopyco.c's DPI_CONFIG
    and DRAG_SCROLL) so that they line up with "customKeycodes" in vial.json and
@@ -105,13 +95,20 @@ enum my_keycodes {
   PKC_GESTURE,
   PKC_DRAG_SCROLL,
   PKC_ADJUST_LED_BRIGHTNESS,
-  PKC_BLINKY_DPI_CONFIG
+  PKC_BLINKY_DPI_CONFIG,
+  /* Wheel keycodes, for the encoder slots in Vial. Put one on a wheel to get
+     the stock smooth (hi-res) scrolling instead of key taps. In the CW slot it
+     scrolls normally; in only the CCW slot it scrolls reversed. */
+  PKC_WHEEL_VSCROLL,
+  PKC_WHEEL_HSCROLL
 };
 
-/* Layer names. */
+/* Layer names. Layer 0 is the left-handed base and layer 1 the right-handed
+   base. Layer 0 is always on; layer 1 sits on top of it and is switched on
+   at startup unless mirror (left-handed) mode is saved. */
 enum {
-    LAYER_NAV_RIGHT_HANDED = 0,
-    LAYER_NAV_LEFT_HANDED,
+    LAYER_NAV_LEFT_HANDED = 0,
+    LAYER_NAV_RIGHT_HANDED,
     LAYER_CONTROL,
     LAYER_GESTURES      /* Never switched on; used as an editable gesture table. */
 };
@@ -259,13 +256,16 @@ const uint16_t PROGMEM pointing_device_gestures[NUM_GESTURE_DIRECTIONS] =
 
 /* Keymap. */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-    // Base layer with all of the mouse-related stuff for everyday use.
-    [LAYER_NAV_RIGHT_HANDED] = LAYOUT(  MS_BTN4, MS_BTN5, PKC_DRAG_SCROLL, MS_BTN2, 
-                                        MS_BTN1, MS_BTN3, 
-                                        PKC_GESTURE, TG(LAYER_CONTROL) ),
-    // Mirror-image of right-handed layout for lefties.
-    [LAYER_NAV_LEFT_HANDED] = LAYOUT(   MS_BTN2, PKC_DRAG_SCROLL, MS_BTN4, MS_BTN5, 
-                                        MS_BTN3, MS_BTN1, 
+    // Layer 0: left-handed base (stock mirror layout). Active when mirror mode is on.
+    [LAYER_NAV_LEFT_HANDED] = LAYOUT(   MS_BTN2, PKC_DRAG_SCROLL, MS_BTN4, MS_BTN5,
+                                        MS_BTN3, MS_BTN1,
+                                        TG(LAYER_CONTROL), PKC_GESTURE ),
+    // Layer 1: right-handed base, the default at startup. Custom layout:
+    //   top row      Mouse 3, F7, Mouse 4, Mouse 5
+    //   big buttons  Mouse 1 (left), Mouse 2 (right)
+    //   wheel press  Control layer (left), Gesture (right)
+    [LAYER_NAV_RIGHT_HANDED] = LAYOUT(  MS_BTN3, KC_F7, MS_BTN4, MS_BTN5,
+                                        MS_BTN1, MS_BTN2,
                                         TG(LAYER_CONTROL), PKC_GESTURE ),
     // Layer for all of the customization options.
     [LAYER_CONTROL] = LAYOUT(           PKC_BLINKY_DPI_CONFIG, PKC_ADJUST_LED_BRIGHTNESS, PKC_TGL_VERT_SCRL, PKC_TGL_HORIZ_SCRL,
@@ -284,6 +284,30 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [6] = LAYOUT( _______, _______, _______, _______, _______, _______, _______, _______ ),
     [7] = LAYOUT( _______, _______, _______, _______, _______, _______, _______, _______ )
 };
+
+/* Wheel map, editable in Vial: { left wheel, right wheel }, each as
+   ENCODER_CCW_CW(counter-clockwise keycode, clockwise keycode).
+   "Clockwise" is the direction that turns the volume up.
+   PKC_WHEEL_VSCROLL / PKC_WHEEL_HSCROLL give the stock smooth scrolling. */
+#define WHEEL_VOLUME  ENCODER_CCW_CW(KC_VOLD, KC_VOLU)
+#define WHEEL_VSCROLL ENCODER_CCW_CW(PKC_WHEEL_VSCROLL, PKC_WHEEL_VSCROLL)
+#define WHEEL_TRNS    ENCODER_CCW_CW(_______, _______)
+const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
+    //                                  Left wheel     Right wheel
+    [LAYER_NAV_LEFT_HANDED]  =        { WHEEL_VOLUME,  WHEEL_VSCROLL },
+    [LAYER_NAV_RIGHT_HANDED] =        { WHEEL_VOLUME,  WHEEL_VSCROLL },
+    [LAYER_CONTROL]          =        { WHEEL_VOLUME,  WHEEL_VOLUME  },
+    [LAYER_GESTURES]         =        { WHEEL_TRNS,    WHEEL_TRNS    },
+    [4]                      =        { WHEEL_TRNS,    WHEEL_TRNS    },
+    [5]                      =        { WHEEL_TRNS,    WHEEL_TRNS    },
+    [6]                      =        { WHEEL_TRNS,    WHEEL_TRNS    },
+    [7]                      =        { WHEEL_TRNS,    WHEEL_TRNS    },
+};
+
+/* Custom encoder driver: the wheels are read in pointing_device_task_user(),
+   which queues encoder events itself. Nothing to do here. */
+void encoder_driver_init(void) {}
+void encoder_driver_task(void) {}
 
 /* Called whenever layers are modified. */
 layer_state_t layer_state_set_user(layer_state_t state) {
@@ -327,7 +351,7 @@ void eeconfig_init_user(void) {
     user_config.raw = 0;
 
     user_config.left_handed = false;                // Right-handed.
-    user_config.horizontal_wheel_mode = HWHEEL_VOLUME; // Horizontal wheel = volume, like the control layer.
+    user_config.horizontal_scroll_arrows = false;   // False = Scroll events, True = left/right arrows.
     user_config.vertical_scroll_arrows = false;     // False = Scroll events, True = up/down arrows.
     user_config.drag_scroll_mode = false;           // Hold to activate.
     user_config.led_brightness = 4;                 // Brightest mode by default.
@@ -383,9 +407,10 @@ void keyboard_post_init_user(void) {
     /* Load up configuration details from the EEPROM. */
     user_config.raw = eeconfig_read_user();
 
-    /* Set the startup layer based on handed-ness. */
-    if( user_config.left_handed ) {
-        layer_on(LAYER_NAV_LEFT_HANDED);
+    /* Set the startup layer based on handed-ness. Layer 0 (left-handed) is
+       always on underneath; the right-handed layer 1 is the default. */
+    if( !user_config.left_handed ) {
+        layer_on(LAYER_NAV_RIGHT_HANDED);
     }
 
 
@@ -413,12 +438,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
                 /* Activate the correct navigation layer and blink the LEDs. */
                 if( user_config.left_handed ) {
                     dprintf( "Lefty nav mode.\n");
-                    layer_on(LAYER_NAV_LEFT_HANDED);
+                    layer_off(LAYER_NAV_RIGHT_HANDED);
                     rgblight_blink_layer(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT*2);
                 }
                 else {
                     dprintf( "Righty nav mode.\n");
-                    layer_off(LAYER_NAV_LEFT_HANDED);
+                    layer_on(LAYER_NAV_RIGHT_HANDED);
                     rgblight_blink_layer_repeat(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT, 2);
                 }
             }
@@ -440,20 +465,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
             return true;
         case PKC_TGL_HORIZ_SCRL:
             if (record->event.pressed) {
-                /* Cycle: volume -> horizontal scroll -> arrows -> volume. */
-                user_config.horizontal_wheel_mode = (user_config.horizontal_wheel_mode + 1) % HWHEEL_MODE_COUNT;
+                user_config.horizontal_scroll_arrows ^= 1;
                 eeconfig_update_user(user_config.raw);
 
-                if( user_config.horizontal_wheel_mode == HWHEEL_VOLUME ) {
+                if( user_config.horizontal_scroll_arrows ) {
                     rgblight_blink_layer(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT*2);
-                    dprintf("Horiz. wheel = volume.\n");
+                    dprintf("Horiz. scroll = arrows.\n");
                 }
                 else {
-                    /* 2 blinks for scroll events, 3 for arrows. */
-                    rgblight_blink_layer_repeat(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT,
-                                                user_config.horizontal_wheel_mode + 1);
-                    dprintf("Horiz. wheel = %s.\n",
-                            user_config.horizontal_wheel_mode == HWHEEL_SCROLL ? "scroll events" : "arrows");
+                    rgblight_blink_layer_repeat(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT, 2);
+                    dprintf("Horiz. scroll = scroll events.\n");
                 }
             }
             return true;
@@ -523,23 +544,144 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
                 rgblight_blink_layer_repeat(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT, keyboard_config.dpi_config + 1);
             }
             return true;         
+        case PKC_WHEEL_VSCROLL:
+        case PKC_WHEEL_HSCROLL:
+            /* Only meaningful on a wheel; handled in pointing_device_task_user(). */
+            return false;
         default:
             return true;
     }
 }
 
-/* State variables for the scroll wheels. */
-int16_t leftwheel_lowres_scroll_tick = 0;
-int16_t rightwheel_lowres_scroll_tick = 0;
+/* ============================== Scroll wheels ==============================
 
-int16_t leftwheel_arrow_scroll_tick = 0;
-int16_t rightwheel_arrow_scroll_tick = 0;
+   Each wheel (0 = left, 1 = right) does whatever its slot in the encoder map
+   says for the current layer, so both wheels can be remapped in Vial:
 
-int16_t leftwheel_volume_scroll_tick = 0;
-int16_t rightwheel_volume_scroll_tick = 0;
+   - PKC_WHEEL_VSCROLL / PKC_WHEEL_HSCROLL: stock smooth hi-res scrolling
+     (or arrow keys, if that's toggled on the control layer). In the CW slot it
+     scrolls normally; placed in only the CCW slot it scrolls reversed.
+   - Anything else: every TMAG5273_VOLUME_SCROLL_TICK_SIZE of rotation taps
+     the CW or CCW keycode, the same step size as the stock volume wheel.
+
+   Positive wheel delta is "clockwise": the direction that turned the volume
+   up and scrolled down on the stock firmware. */
+
+typedef enum {
+    WHEEL_ROLE_KEYS = 0,
+    WHEEL_ROLE_VSCROLL,
+    WHEEL_ROLE_HSCROLL
+} wheel_role_t;
+
+#define NUM_WHEELS 2
+
+/* Matrix columns of the wheel buttons; a wheel is ignored while pressed. */
+static const uint8_t wheel_button_col[NUM_WHEELS] = { 6, 7 };
+
+static int16_t wheel_key_tick[NUM_WHEELS]    = { 0, 0 };
+static int16_t wheel_arrow_tick[NUM_WHEELS]  = { 0, 0 };
+static int16_t wheel_lowres_tick[NUM_WHEELS] = { 0, 0 };
 
 uint32_t leftwheel_timeout = 0;
 uint32_t rightwheel_timeout = 0;
+
+/* Look up the wheel's keycode on the highest active layer that isn't
+   transparent for it, like QMK does for keys. */
+static uint16_t wheel_keycode(uint8_t index, bool clockwise) {
+    keypos_t pos = { .row = clockwise ? KEYLOC_ENCODER_CW : KEYLOC_ENCODER_CCW, .col = index };
+    return keymap_key_to_keycode(layer_switch_get_layer(pos), pos);
+}
+
+static wheel_role_t wheel_role(uint8_t index, bool *reversed) {
+    uint16_t cw  = wheel_keycode(index, true);
+    uint16_t ccw = wheel_keycode(index, false);
+
+    *reversed = false;
+    if( cw == PKC_WHEEL_VSCROLL ) return WHEEL_ROLE_VSCROLL;
+    if( cw == PKC_WHEEL_HSCROLL ) return WHEEL_ROLE_HSCROLL;
+    *reversed = true;
+    if( ccw == PKC_WHEEL_VSCROLL ) return WHEEL_ROLE_VSCROLL;
+    if( ccw == PKC_WHEEL_HSCROLL ) return WHEEL_ROLE_HSCROLL;
+    *reversed = false;
+    return WHEEL_ROLE_KEYS;
+}
+
+/* Turn one wheel's movement into keys or scroll for this report. */
+static void process_wheel(uint8_t index, int16_t delta, int16_t deadzone_distance, report_mouse_t *mouse_report) {
+
+    /* Ignore a wheel while its button is held down, like the stock firmware. */
+    if( matrix_is_on(0, wheel_button_col[index]) ) {
+        wheel_key_tick[index] = 0;
+        return;
+    }
+
+    bool reversed;
+    wheel_role_t role = wheel_role(index, &reversed);
+
+    /* ---- Key mode: tap the encoder-map keycode every tick. ---- */
+    if( role == WHEEL_ROLE_KEYS ) {
+        wheel_key_tick[index] += delta;
+        if( wheel_key_tick[index] > TMAG5273_VOLUME_SCROLL_TICK_SIZE ) {
+            encoder_queue_event(index, true);
+            wheel_key_tick[index] = 0;
+        }
+        else if( wheel_key_tick[index] < -TMAG5273_VOLUME_SCROLL_TICK_SIZE ) {
+            encoder_queue_event(index, false);
+            wheel_key_tick[index] = 0;
+        }
+        return;
+    }
+
+    wheel_key_tick[index] = 0;
+    if( reversed ) {
+        delta = -delta;
+    }
+    bool vertical = (role == WHEEL_ROLE_VSCROLL);
+
+    /* ---- Arrow mode (toggled on the control layer). Same on every OS. ---- */
+    if( vertical ? user_config.vertical_scroll_arrows : user_config.horizontal_scroll_arrows ) {
+        int16_t tick_size = vertical ? TMAG5273_VERT_SCROLL_TICK_SIZE : TMAG5273_HORIZ_SCROLL_TICK_SIZE;
+
+        wheel_arrow_tick[index] += delta;
+        if( wheel_arrow_tick[index] > tick_size ) {
+            tap_code(vertical ? KC_DOWN : KC_RIGHT);
+            wheel_arrow_tick[index] = 0;
+        }
+        else if( wheel_arrow_tick[index] < -tick_size ) {
+            tap_code(vertical ? KC_UP : KC_LEFT);
+            wheel_arrow_tick[index] = 0;
+        }
+        return;
+    }
+
+    /* ---- Hi-res scroll events on Windows and Linux. ---- */
+    if ( detected_host_os() == OS_WINDOWS || detected_host_os() == OS_LINUX ) {
+        if ( deadzone_distance > (TMAG5273_WHEEL_DEADZONE - 10) ||
+             deadzone_distance < (-TMAG5273_WHEEL_DEADZONE + 10) ) {
+            if( vertical ) {
+                mouse_report->v += -delta / TMAG5273_VERTICAL_WHEEL_SPEED_DIV;
+            }
+            else {
+                mouse_report->h += delta / TMAG5273_HORIZONAL_WHEEL_SPEED_DIV;
+            }
+        }
+        return;
+    }
+
+    /* ---- Regular scroll events on other OSes. ----
+       Certain operating systems, like MacOS, don't play well with the
+       high-res scrolling implementation. For more details, see:
+       https://github.com/qmk/qmk_firmware/issues/17585#issuecomment-2325248167 */
+    wheel_lowres_tick[index] += delta;
+    if( wheel_lowres_tick[index] > TMAG5273_LOWRES_TICK_SIZE ) {
+        if( vertical ) { mouse_report->v -= 1; } else { mouse_report->h += 1; }
+        wheel_lowres_tick[index] = 0;
+    }
+    else if( wheel_lowres_tick[index] < -TMAG5273_LOWRES_TICK_SIZE ) {
+        if( vertical ) { mouse_report->v += 1; } else { mouse_report->h -= 1; }
+        wheel_lowres_tick[index] = 0;
+    }
+}
 
 report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
     // throttle reads
@@ -601,239 +743,8 @@ report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
             rightwheel_timeout = TMAG5273_DEADZONE_PROTECTOR_TIMEOUT * 4;
         }
 
-        /* If we're on the control layers, both wheels adjust the volume. */
-        if( layer_state_is(LAYER_CONTROL) ) {
-
-            leftwheel_volume_scroll_tick += leftwheel_delta;
-            rightwheel_volume_scroll_tick += rightwheel_delta;
-
-            if( leftwheel_volume_scroll_tick > TMAG5273_VOLUME_SCROLL_TICK_SIZE ) {
-                tap_code(KC_VOLU);
-                leftwheel_volume_scroll_tick = 0;
-            }
-            else if( leftwheel_volume_scroll_tick < -TMAG5273_VOLUME_SCROLL_TICK_SIZE ) {
-                tap_code(KC_VOLD);
-                leftwheel_volume_scroll_tick = 0;
-            }
-            if( rightwheel_volume_scroll_tick > TMAG5273_VOLUME_SCROLL_TICK_SIZE ) {
-                tap_code(KC_VOLU);
-                rightwheel_volume_scroll_tick = 0;
-            }
-            else if( rightwheel_volume_scroll_tick < -TMAG5273_VOLUME_SCROLL_TICK_SIZE ) {
-                tap_code(KC_VOLD);
-                rightwheel_volume_scroll_tick = 0;
-            }
-
-            /* Return early -- no other scrolling activity happens in the
-               control layer. */
-            return mouse_report;
-        }
-
-        /* Custom: the horizontal wheel adjusts the volume, exactly like the
-           wheels do on the control layer. The horizontal wheel is the right
-           wheel for righties and the left wheel for lefties. */
-        if( user_config.horizontal_wheel_mode == HWHEEL_VOLUME ) {
-            int16_t *horiz_delta    = user_config.left_handed ? &leftwheel_delta : &rightwheel_delta;
-            int16_t *horiz_vol_tick = user_config.left_handed ? &leftwheel_volume_scroll_tick : &rightwheel_volume_scroll_tick;
-            bool     horiz_knob_held = matrix_is_on(0, user_config.left_handed ? 6 : 7);
-
-            /* Like scrolling, ignore the wheel while its button is held down. */
-            if( horiz_knob_held ) {
-                *horiz_vol_tick = 0;
-            }
-            else {
-                *horiz_vol_tick += *horiz_delta;
-
-                if( *horiz_vol_tick > TMAG5273_VOLUME_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_VOLU);
-                    *horiz_vol_tick = 0;
-                }
-                else if( *horiz_vol_tick < -TMAG5273_VOLUME_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_VOLD);
-                    *horiz_vol_tick = 0;
-                }
-            }
-
-            /* Zero the delta so this wheel never sends scroll events too. */
-            *horiz_delta = 0;
-        }
-
-        /* If scroll arrow mode is activated for horizontal scrolling, then we do that.
-           This behaviour is the same across OSes. */
-        if( user_config.horizontal_wheel_mode == HWHEEL_ARROWS ) {
-
-            leftwheel_arrow_scroll_tick += leftwheel_delta;
-            rightwheel_arrow_scroll_tick += rightwheel_delta;
-
-            if( user_config.left_handed ) {
-                if( leftwheel_arrow_scroll_tick > TMAG5273_HORIZ_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_RIGHT);
-                    leftwheel_arrow_scroll_tick = 0;
-                }
-                else if( leftwheel_arrow_scroll_tick < -TMAG5273_HORIZ_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_LEFT);
-                    leftwheel_arrow_scroll_tick = 0;
-                }
-
-                /* Set the delta to zero so we don't scroll *and* arrow at the same time. */
-                leftwheel_delta = 0;
-            }
-            else {
-                if( rightwheel_arrow_scroll_tick > TMAG5273_HORIZ_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_RIGHT);
-                    rightwheel_arrow_scroll_tick = 0;
-                }
-                else if( rightwheel_arrow_scroll_tick < -TMAG5273_HORIZ_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_LEFT);
-                    rightwheel_arrow_scroll_tick = 0;
-                }
-                /* Set the delta to zero so we don't scroll *and* arrow at the same time. */
-                rightwheel_delta = 0;
-            }
-        }
-
-        /* If scroll arrow mode is activated for vertical scrolling, then we do that. 
-           This behaviour is the same across OSes. */
-        if( user_config.vertical_scroll_arrows ) {
-
-            leftwheel_arrow_scroll_tick += leftwheel_delta;
-            rightwheel_arrow_scroll_tick += rightwheel_delta;
-
-            if( user_config.left_handed ) {
-                if( rightwheel_arrow_scroll_tick > TMAG5273_VERT_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_DOWN);
-                    rightwheel_arrow_scroll_tick = 0;
-                }
-                else if( rightwheel_arrow_scroll_tick < -TMAG5273_VERT_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_UP);
-                    rightwheel_arrow_scroll_tick = 0;
-                }
-                /* Set the delta to zero so we don't scroll *and* arrow at the same time. */
-                rightwheel_delta = 0;
-            }
-            else {
-                if( leftwheel_arrow_scroll_tick > TMAG5273_VERT_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_DOWN);
-                    leftwheel_arrow_scroll_tick = 0;
-                }
-                else if( leftwheel_arrow_scroll_tick < -TMAG5273_VERT_SCROLL_TICK_SIZE ) {
-                    tap_code(KC_UP);
-                    leftwheel_arrow_scroll_tick = 0;
-                }
-                /* Set the delta to zero so we don't scroll *and* arrow at the same time. */
-                leftwheel_delta = 0;
-            }
-        }
-
-        /* If we're on Windows or Linux, send hi-res scroll events. */
-        if ( (detected_host_os() == OS_WINDOWS || detected_host_os() == OS_LINUX) ) {
-            
-            if ( leftwheel_deadzone_distance > (TMAG5273_WHEEL_DEADZONE - 10) ||
-                 leftwheel_deadzone_distance < (-TMAG5273_WHEEL_DEADZONE + 10)) {
-
-                if( user_config.left_handed ) {
-                    if( user_config.horizontal_wheel_mode == HWHEEL_SCROLL ) {
-                        mouse_report.h = leftwheel_delta / TMAG5273_HORIZONAL_WHEEL_SPEED_DIV;
-                    }
-                    
-                }
-                else {
-                    mouse_report.v = -leftwheel_delta / TMAG5273_VERTICAL_WHEEL_SPEED_DIV;
-                }
-            }
-            if ( rightwheel_deadzone_distance > (TMAG5273_WHEEL_DEADZONE - 10) ||
-                 rightwheel_deadzone_distance < (-TMAG5273_WHEEL_DEADZONE + 10)) {
-
-                if( user_config.left_handed ) {
-                    mouse_report.v = -rightwheel_delta / TMAG5273_VERTICAL_WHEEL_SPEED_DIV;
-                }
-                else {
-                    if( user_config.horizontal_wheel_mode == HWHEEL_SCROLL ) {
-                        mouse_report.h = rightwheel_delta / TMAG5273_HORIZONAL_WHEEL_SPEED_DIV;
-                    }
-                }
-            }
-
-        } else {
-            /* In this case, we're on another OS, so we just send regular scroll events. */
-            /* Certain operating systems, like MacOS, don't play well with the
-               high-res scrolling implementation. For more details, see:
-               https://github.com/qmk/qmk_firmware/issues/17585#issuecomment-2325248167
-               128 gives the scroll wheels "ticks". */
-
-            leftwheel_lowres_scroll_tick += leftwheel_delta;
-            rightwheel_lowres_scroll_tick += rightwheel_delta;
-
-            if( user_config.left_handed ) {
-                if( leftwheel_lowres_scroll_tick > TMAG5273_LOWRES_TICK_SIZE ) {
-                    if( user_config.horizontal_wheel_mode == HWHEEL_SCROLL ) {
-                        mouse_report.h = 1;
-                    }
-                    leftwheel_lowres_scroll_tick = 0;
-                }
-                else if( leftwheel_lowres_scroll_tick < -TMAG5273_LOWRES_TICK_SIZE ) {
-                    if( user_config.horizontal_wheel_mode == HWHEEL_SCROLL ) {
-                        mouse_report.h = -1;
-                    }
-                    leftwheel_lowres_scroll_tick = 0;
-                }
-
-                if( rightwheel_lowres_scroll_tick > TMAG5273_LOWRES_TICK_SIZE ) {
-                    mouse_report.v = -1;
-                    rightwheel_lowres_scroll_tick = 0;
-                }
-                else if( rightwheel_lowres_scroll_tick < -TMAG5273_LOWRES_TICK_SIZE ) {
-                    mouse_report.v = 1;
-                    rightwheel_lowres_scroll_tick = 0;
-                }
-            }
-            else {
-                if( leftwheel_lowres_scroll_tick > TMAG5273_LOWRES_TICK_SIZE ) {
-                    mouse_report.v = -1;
-                    leftwheel_lowres_scroll_tick = 0;
-                }
-                else if( leftwheel_lowres_scroll_tick < -TMAG5273_LOWRES_TICK_SIZE ) {
-                    mouse_report.v = 1;
-                    leftwheel_lowres_scroll_tick = 0;
-                }
-
-                if( rightwheel_lowres_scroll_tick > TMAG5273_LOWRES_TICK_SIZE ) {
-                    if( user_config.horizontal_wheel_mode == HWHEEL_SCROLL ) {
-                        mouse_report.h = 1;
-                    }
-                    rightwheel_lowres_scroll_tick = 0;
-                }
-                else if( rightwheel_lowres_scroll_tick < -TMAG5273_LOWRES_TICK_SIZE ) {
-                    if( user_config.horizontal_wheel_mode == HWHEEL_SCROLL ) {
-                        mouse_report.h = -1;
-                    }
-                    rightwheel_lowres_scroll_tick = 0;
-                }
-            }
-        }
-
-        /* Set scroll data to zero if the corresponding button is 
-           currently being held down. */
-
-        /* Check left knob. */
-        if( matrix_is_on(0,6) ) {
-            if( user_config.left_handed ) {
-                mouse_report.h = 0;
-            }
-            else {
-                mouse_report.v = 0;
-            }
-        }
-        /* Check right knob. */
-        if( matrix_is_on(0,7) ) {
-            if( user_config.left_handed ) {
-                mouse_report.v = 0;
-            }
-            else {
-                mouse_report.h = 0;
-            }
-        }
-
+        process_wheel(0, leftwheel_delta,  leftwheel_deadzone_distance,  &mouse_report);
+        process_wheel(1, rightwheel_delta, rightwheel_deadzone_distance, &mouse_report);
     }
 
     return mouse_report;

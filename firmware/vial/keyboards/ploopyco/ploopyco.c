@@ -69,7 +69,7 @@ bool  is_drag_scroll       = false;
 float scroll_accumulated_h = 0;
 float scroll_accumulated_v = 0;
 
-#ifdef ENCODER_ENABLE
+#if defined(ENCODER_ENABLE) && !defined(PLOOPY_NO_OPT_ENCODER) /* A+ supplies its own wheel driver. */
 uint16_t lastScroll        = 0; // Previous confirmed wheel event
 uint16_t lastMidClick      = 0; // Stops scrollwheel from being read if it was pressed
 pin_t    encoder_pins_a[1] = ENCODER_A_PINS;
@@ -175,7 +175,7 @@ bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
     }
 
     // Update Timer to prevent accidental scrolls
-#ifdef ENCODER_ENABLE
+#if defined(ENCODER_ENABLE) && !defined(PLOOPY_NO_OPT_ENCODER) /* A+ supplies its own wheel driver. */
     if ((record->event.key.col == ENCODER_BUTTON_COL) && (record->event.key.row == ENCODER_BUTTON_ROW)) {
         lastMidClick      = timer_read();
         is_scroll_clicked = record->event.pressed;
