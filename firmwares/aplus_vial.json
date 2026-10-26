@@ -60,13 +60,33 @@
     },
     {
       "name": "PKC_WHEEL_VSCROLL",
-      "title": "Wheel: smooth vertical scroll (put on a wheel; CW slot = normal, only CCW slot = reversed)",
+      "title": "Wheel: vertical scroll, type set by the control-layer toggle (default notched). CW slot = normal, only CCW slot = reversed",
       "shortName": "Wheel\nV-Scrl"
     },
     {
       "name": "PKC_WHEEL_HSCROLL",
-      "title": "Wheel: smooth horizontal scroll (put on a wheel; CW slot = normal, only CCW slot = reversed)",
+      "title": "Wheel: horizontal scroll, type set by the control-layer toggle (default notched). CW slot = normal, only CCW slot = reversed",
       "shortName": "Wheel\nH-Scrl"
+    },
+    {
+      "name": "PKC_WHEEL_V_NOTCHED",
+      "title": "Wheel: vertical scroll, always notched (full notches, works in games)",
+      "shortName": "V-Scrl\nNotch"
+    },
+    {
+      "name": "PKC_WHEEL_V_SMOOTH",
+      "title": "Wheel: vertical scroll, always smooth (hi-res; many games ignore it)",
+      "shortName": "V-Scrl\nSmooth"
+    },
+    {
+      "name": "PKC_WHEEL_H_NOTCHED",
+      "title": "Wheel: horizontal scroll, always notched",
+      "shortName": "H-Scrl\nNotch"
+    },
+    {
+      "name": "PKC_WHEEL_H_SMOOTH",
+      "title": "Wheel: horizontal scroll, always smooth (hi-res)",
+      "shortName": "H-Scrl\nSmooth"
     }
   ],
   "layouts": {

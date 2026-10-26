@@ -195,7 +195,14 @@ enum my_keycodes {
      the stock smooth (hi-res) scrolling instead of key taps. In the CW slot it
      scrolls normally; in only the CCW slot it scrolls reversed. */
   PKC_WHEEL_VSCROLL,
-  PKC_WHEEL_HSCROLL
+  PKC_WHEEL_HSCROLL,
+  /* Same, but with a fixed scroll type that ignores the control-layer
+     toggles. Choosing one of these on a wheel in Vial is how the scroll type
+     is set from Vial (per wheel, per layer). */
+  PKC_WHEEL_V_NOTCHED,
+  PKC_WHEEL_V_SMOOTH,
+  PKC_WHEEL_H_NOTCHED,
+  PKC_WHEEL_H_SMOOTH
 };
 
 /* Layer names. Layer 0 is the left-handed base (the default) and layer 1 the
@@ -671,6 +678,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
             return true;         
         case PKC_WHEEL_VSCROLL:
         case PKC_WHEEL_HSCROLL:
+        case PKC_WHEEL_V_NOTCHED:
+        case PKC_WHEEL_V_SMOOTH:
+        case PKC_WHEEL_H_NOTCHED:
+        case PKC_WHEEL_H_SMOOTH:
             /* Only meaningful on a wheel; handled in pointing_device_task_user(). */
             return false;
         default:
@@ -683,9 +694,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
    Each wheel (0 = left, 1 = right) does whatever its slot in the encoder map
    says for the current layer, so both wheels can be remapped in Vial:
 
-   - PKC_WHEEL_VSCROLL / PKC_WHEEL_HSCROLL: stock smooth hi-res scrolling
-     (or arrow keys, if that's toggled on the control layer). In the CW slot it
-     scrolls normally; placed in only the CCW slot it scrolls reversed.
+   - PKC_WHEEL_VSCROLL / PKC_WHEEL_HSCROLL: scroll in the type chosen with the
+     control layer's toggles (notched, smooth or arrows; default notched).
+   - PKC_WHEEL_V_NOTCHED / _V_SMOOTH / _H_NOTCHED / _H_SMOOTH: scroll in that
+     fixed type, ignoring the toggles. This is the Vial "setting".
+   In the CW slot a scroll keycode scrolls normally; placed in only the CCW
+   slot it scrolls reversed.
    - Anything else: every TMAG5273_VOLUME_SCROLL_TICK_SIZE of rotation taps
      the CW or CCW keycode, the same step size as the stock volume wheel.
 
@@ -717,17 +731,29 @@ static uint16_t wheel_keycode(uint8_t index, bool clockwise) {
     return keymap_key_to_keycode(layer_switch_get_layer(pos), pos);
 }
 
-static wheel_role_t wheel_role(uint8_t index, bool *reversed) {
-    uint16_t cw  = wheel_keycode(index, true);
-    uint16_t ccw = wheel_keycode(index, false);
+/* What a scroll keycode means: axis, and a fixed scroll type if it has one. */
+static bool scroll_keycode_info(uint16_t kc, wheel_role_t *role, int8_t *fixed_mode) {
+    *fixed_mode = -1;   /* -1 = follow the control-layer toggle. */
+    switch( kc ) {
+        case PKC_WHEEL_VSCROLL:   *role = WHEEL_ROLE_VSCROLL; return true;
+        case PKC_WHEEL_HSCROLL:   *role = WHEEL_ROLE_HSCROLL; return true;
+        case PKC_WHEEL_V_NOTCHED: *role = WHEEL_ROLE_VSCROLL; *fixed_mode = SCROLL_NOTCHED; return true;
+        case PKC_WHEEL_V_SMOOTH:  *role = WHEEL_ROLE_VSCROLL; *fixed_mode = SCROLL_SMOOTH;  return true;
+        case PKC_WHEEL_H_NOTCHED: *role = WHEEL_ROLE_HSCROLL; *fixed_mode = SCROLL_NOTCHED; return true;
+        case PKC_WHEEL_H_SMOOTH:  *role = WHEEL_ROLE_HSCROLL; *fixed_mode = SCROLL_SMOOTH;  return true;
+        default: return false;
+    }
+}
+
+static wheel_role_t wheel_role(uint8_t index, bool *reversed, int8_t *fixed_mode) {
+    wheel_role_t role;
 
     *reversed = false;
-    if( cw == PKC_WHEEL_VSCROLL ) return WHEEL_ROLE_VSCROLL;
-    if( cw == PKC_WHEEL_HSCROLL ) return WHEEL_ROLE_HSCROLL;
+    if( scroll_keycode_info(wheel_keycode(index, true), &role, fixed_mode) ) return role;
     *reversed = true;
-    if( ccw == PKC_WHEEL_VSCROLL ) return WHEEL_ROLE_VSCROLL;
-    if( ccw == PKC_WHEEL_HSCROLL ) return WHEEL_ROLE_HSCROLL;
+    if( scroll_keycode_info(wheel_keycode(index, false), &role, fixed_mode) ) return role;
     *reversed = false;
+    *fixed_mode = -1;
     return WHEEL_ROLE_KEYS;
 }
 
@@ -741,7 +767,8 @@ static void process_wheel(uint8_t index, int16_t delta, int16_t deadzone_distanc
     }
 
     bool reversed;
-    wheel_role_t role = wheel_role(index, &reversed);
+    int8_t fixed_mode;
+    wheel_role_t role = wheel_role(index, &reversed, &fixed_mode);
 
     /* ---- Key mode: tap the encoder-map keycode every tick. ---- */
     if( role == WHEEL_ROLE_KEYS ) {
@@ -763,7 +790,7 @@ static void process_wheel(uint8_t index, int16_t delta, int16_t deadzone_distanc
     }
     bool vertical = (role == WHEEL_ROLE_VSCROLL);
 
-    scroll_mode_t mode = get_scroll_mode(vertical);
+    scroll_mode_t mode = (fixed_mode >= 0) ? (scroll_mode_t)fixed_mode : get_scroll_mode(vertical);
 
     /* ---- Arrow mode (toggled on the control layer). Same on every OS. ---- */
     if( mode == SCROLL_ARROWS ) {

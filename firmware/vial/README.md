@@ -84,6 +84,19 @@ Smooth scrolling sends tiny partial-notch steps on Windows and Linux; apps
 that only react to whole notches (many games and their menus) don't scroll.
 That's why notched is the default.
 
+**Setting the scroll type in Vial.** Vial's QMK Settings tab is a fixed list
+built into the Vial app, so the scroll type is chosen with wheel keycodes
+instead (User tab), per wheel and per layer:
+
+| Keycode on the wheel | Scroll type |
+|---|---|
+| Wheel V-Scrl / Wheel H-Scrl | Follows the control-layer toggle above (default notched) |
+| V-Scrl Notch / H-Scrl Notch | Always notched |
+| V-Scrl Smooth / H-Scrl Smooth | Always smooth |
+
+Put the keycode in both of the wheel's slots (or only the counter-clockwise
+slot to reverse it). For arrow keys, put the arrow keycodes in the slots.
+
 ## Using Vial
 
 Open [vial.rocks](https://vial.rocks) in Chrome/Edge, or the Vial desktop app,

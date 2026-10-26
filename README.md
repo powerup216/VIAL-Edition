@@ -56,9 +56,14 @@ and plug in the A+.
   - **Wheel V-Scrl** / **Wheel H-Scrl** (User tab) make it a scroll wheel.
     Put it in both slots; put it in only the counter-clockwise slot to reverse it.
   - **Scroll type:** notched by default, one full notch at a time like a normal
-    mouse, so it works in game menus. The control layer's Toggle Vertical /
-    Horizontal Scroll Type buttons cycle notched (3 blinks) → smooth hi-res
-    (2 blinks) → arrow keys (1 blink).
+    mouse, so it works in game menus. Smooth hi-res scrolling is smoother in
+    browsers but many games ignore it. Set it either way:
+    - **In Vial:** put **V-Scrl Notch** or **V-Scrl Smooth** (or the H-Scrl
+      versions) on a wheel. These fixed types work per wheel and per layer, so a
+      gaming layer can be notched and another smooth.
+    - **On the trackball:** with plain **Wheel V-Scrl / H-Scrl** on the wheel,
+      the control layer's Toggle Vertical / Horizontal Scroll Type buttons cycle
+      notched (3 blinks) → smooth (2 blinks) → arrow keys (1 blink).
 - **Gestures:** layer 3's eight keys are the eight gesture directions, going
   clockwise from the top-left key (the small arrows on the keymap). A
   transparent key keeps the built-in OS-aware action; a Vial macro (`M0`, `M1` …)
