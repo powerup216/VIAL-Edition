@@ -14,7 +14,7 @@ from pathlib import Path
 RED, BLUE, GREEN, YELLOW = "#E3262E", "#3563F2", "#1FAF53", "#F0BE00"
 INK, GREY, OUTLINE = "#111111", "#7A7A7A", "#5E5E5E"
 FONT = "Montserrat"
-DATE = "2026-10-19"
+DATE = "2026-10-25"
 
 PANEL_W, PANEL_H = 306, 396
 
@@ -266,7 +266,7 @@ def control_panel():
     side = {
         "TLL": ("L", ctl(["Cycle", "DPI"], ["600, 900, 1200,", "1600, 2400.", "LEDs blink once", "for 600, more", "for higher.", "900 is default."])),
         "BL":  ("L", ctl(["Mirror", "Base Layer"], ["Left-handed (L0):", "1 blink.", "Right-handed (L1):", "2 blinks."])),
-        "TRR": ("R", ctl(["Toggle", "Horizontal", "Scroll Type"], ["For wheels set to", "Wheel H-Scrl:", "scroll events or", "left/right arrows.", "1 blink = arrows,", "2 = scroll."])),
+        "TRR": ("R", ctl(["Toggle", "Horizontal", "Scroll Type"], ["Wheel H-Scrl only.", "Notched (default),", "smooth, or left/", "right arrows.", "Blinks: 3 = notched,", "2 = smooth,", "1 = arrows."])),
         "BR":  ("R", ctl(["Toggle Drag", "Scroll Type"], ["Hold to activate", "(like Shift) or", "toggle (like Caps", "Lock). 1 blink =", "toggle, 2 = hold."])),
     }
     for key, (s, lines) in side.items():
@@ -286,7 +286,7 @@ def control_panel():
 
     tops = {
         "TL": ("end", cx - 6, ctl(["Adjust LED", "Brightness"], ["Cycles 25, 50,", "75, 100%."])),
-        "TR": ("start", cx + 6, ctl(["Toggle Vertical", "Scroll Type"], ["Scroll events or", "up/down arrows.", "1 blink = arrows,", "2 = scroll."])),
+        "TR": ("start", cx + 6, ctl(["Toggle Vertical", "Scroll Type"], ["Notched (default, works", "in games), smooth,", "or up/down arrows.", "Blinks: 3 = notched,", "2 = smooth, 1 = arrows."])),
     }
     for key, (anchor, tx, lines) in tops.items():
         bottom = a["top"] - 8

@@ -11,7 +11,8 @@ ported to [vial-qmk](https://github.com/vial-kb/vial-qmk), with these changes:
 | Change | Stock | This firmware |
 |---|---|---|
 | Wheels | Fixed functions | **Remappable per layer in Vial** (any key, or smooth scrolling) |
-| Wheel defaults on the base layers | One scrolls, one horizontal-scrolls | **Volume instead of horizontal scroll**; smooth vertical scroll kept |
+| Wheel defaults on the base layers | One scrolls, one horizontal-scrolls | **Volume instead of horizontal scroll**; vertical scroll kept |
+| Scroll type | Smooth (hi-res) only | **Notched by default** (works in game menus); smooth and arrows selectable |
 | Layers | 0 = right-handed (default), 1 = left-handed | **0 = left-handed (default, custom layout below)**, 1 = right-handed |
 | Left-handed base layer LED | Green | **Red** |
 | Control layer LED | Red | **Green** |
@@ -40,7 +41,7 @@ To go back to stock, flash `firmwares/aplus.uf2` the same way.
 | Mouse 3 | F7 | Mouse 4 | Mouse 5 |
 | Mouse 1 | | | Mouse 2 |
 | Left wheel press: TG(2) (control layer) | | | Right wheel press: Gesture |
-| Left wheel turn: Volume | | | Right wheel turn: Smooth vertical scroll |
+| Left wheel turn: Volume | | | Right wheel turn: Vertical scroll |
 
 **Layer 1: right-handed base** (blue LED), Ploopy's stock right-handed layout:
 left wheel scrolls, right wheel is volume, left wheel press is Gesture, right
@@ -64,15 +65,24 @@ Clockwise is the direction that turns the volume up.
 - **Any keycode** (volume, media, arrows, `MS_WHLU`/`MS_WHLD`, a macro, a layer
   key …) is tapped once per notch, with the same notch size as the stock volume
   wheel.
-- **Wheel V-Scrl** / **Wheel H-Scrl** (User tab) give Ploopy's smooth, hi-res
+- **Wheel V-Scrl** / **Wheel H-Scrl** (User tab) give mouse-wheel
   scrolling. Put it in both slots for normal direction. To reverse it, put it in
   only the ↺ slot.
 - **▽ (transparent)** uses the wheel's setting from the layer below.
 - A wheel is ignored while its own button is held down, as on the stock firmware.
 
-The control layer's **Toggle Vertical/Horizontal Scroll Type** buttons still
-switch the smooth-scroll wheels between scroll events and arrow keys (1 blink =
-arrows, 2 blinks = scroll events).
+The control layer's **Toggle Vertical/Horizontal Scroll Type** buttons cycle
+how those scroll wheels scroll (saved per axis):
+
+| Mode | LED blinks | Behaviour |
+|---|---|---|
+| Notched (default) | 3 | One full wheel notch at a time, like a normal mouse. Works everywhere, including game menus. |
+| Smooth | 2 | Ploopy's high-resolution scrolling. Smoother in browsers, but many games ignore it. |
+| Arrows | 1 | Up/down (or left/right) arrow keys. |
+
+Smooth scrolling sends tiny partial-notch steps on Windows and Linux; apps
+that only react to whole notches (many games and their menus) don't scroll.
+That's why notched is the default.
 
 ## Using Vial
 

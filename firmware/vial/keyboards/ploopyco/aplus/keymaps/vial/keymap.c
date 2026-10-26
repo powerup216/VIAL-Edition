@@ -118,6 +118,8 @@ typedef union {
     bool    drag_scroll_mode :1;
     uint8_t unused_led_brightness: 8;      /* Moved to led_brightness below. */
     uint8_t config_version: 2;             /* Settings are reset once when this changes. */
+    bool    vertical_smooth :1;            /* 0 = notched (default), 1 = smooth hi-res. */
+    bool    horizontal_smooth :1;          /* 0 = notched (default), 1 = smooth hi-res. */
   };
 } user_config_t;
 
@@ -446,6 +448,8 @@ void eeconfig_init_user(void) {
     user_config.right_handed = false;               // Left-handed (layer 0) by default.
     user_config.horizontal_scroll_arrows = false;   // False = Scroll events, True = left/right arrows.
     user_config.vertical_scroll_arrows = false;     // False = Scroll events, True = up/down arrows.
+    user_config.vertical_smooth = false;            // Notched scroll: works in games and every app.
+    user_config.horizontal_smooth = false;
     user_config.drag_scroll_mode = false;           // Hold to activate.
     user_config.config_version = USER_CONFIG_VERSION;
     persist.user_config_raw = user_config.raw;
@@ -534,6 +538,44 @@ void keyboard_post_init_user(void) {
     apply_led_config();
 }  
 
+/* Scroll type for the Wheel V-Scrl / H-Scrl wheels, per axis. Cycled with
+   the control layer's Toggle Vertical / Horizontal Scroll Type keys:
+     notched (3 blinks) -> smooth (2 blinks) -> arrows (1 blink) -> notched.
+   Notched sends one full wheel notch at a time like a normal mouse, which
+   game menus and other apps that ignore partial scroll steps need. Smooth is
+   Ploopy's hi-res scrolling. */
+typedef enum { SCROLL_NOTCHED, SCROLL_SMOOTH, SCROLL_ARROWS } scroll_mode_t;
+
+static scroll_mode_t get_scroll_mode(bool vertical) {
+    bool arrows = vertical ? user_config.vertical_scroll_arrows : user_config.horizontal_scroll_arrows;
+    bool smooth = vertical ? user_config.vertical_smooth        : user_config.horizontal_smooth;
+    return arrows ? SCROLL_ARROWS : smooth ? SCROLL_SMOOTH : SCROLL_NOTCHED;
+}
+
+static void cycle_scroll_mode(bool vertical) {
+    scroll_mode_t next;
+    switch( get_scroll_mode(vertical) ) {
+        case SCROLL_NOTCHED: next = SCROLL_SMOOTH;  break;
+        case SCROLL_SMOOTH:  next = SCROLL_ARROWS;  break;
+        default:             next = SCROLL_NOTCHED; break;
+    }
+    if( vertical ) {
+        user_config.vertical_scroll_arrows = (next == SCROLL_ARROWS);
+        user_config.vertical_smooth        = (next == SCROLL_SMOOTH);
+    }
+    else {
+        user_config.horizontal_scroll_arrows = (next == SCROLL_ARROWS);
+        user_config.horizontal_smooth        = (next == SCROLL_SMOOTH);
+    }
+    save_user_config();
+
+    /* 1 blink = arrows, 2 = smooth, 3 = notched. */
+    uint8_t blinks = (next == SCROLL_ARROWS) ? 1 : (next == SCROLL_SMOOTH) ? 2 : 3;
+    rgblight_blink_layer_repeat(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT, blinks);
+    dprintf("%s scroll = %s.\n", vertical ? "Vert." : "Horiz.",
+            next == SCROLL_ARROWS ? "arrows" : next == SCROLL_SMOOTH ? "smooth" : "notched");
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t* record) {
     switch (keycode) {
         case PKC_TGL_MIRROR:
@@ -557,33 +599,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
             }
             return true;
         case PKC_TGL_VERT_SCRL:
-            if (record->event.pressed) {
-                user_config.vertical_scroll_arrows ^= 1;
-                save_user_config();
-
-                if( user_config.vertical_scroll_arrows ) {
-                    rgblight_blink_layer(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT*2);
-                    dprintf("Vert. scroll = arrows.\n");
-                }
-                else {
-                    rgblight_blink_layer_repeat(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT, 2);
-                    dprintf("Vert. scroll = scroll events.\n");
-                }
-            }
-            return true;
         case PKC_TGL_HORIZ_SCRL:
             if (record->event.pressed) {
-                user_config.horizontal_scroll_arrows ^= 1;
-                save_user_config();
-
-                if( user_config.horizontal_scroll_arrows ) {
-                    rgblight_blink_layer(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT*2);
-                    dprintf("Horiz. scroll = arrows.\n");
-                }
-                else {
-                    rgblight_blink_layer_repeat(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT, 2);
-                    dprintf("Horiz. scroll = scroll events.\n");
-                }
+                cycle_scroll_mode(keycode == PKC_TGL_VERT_SCRL);
             }
             return true;
         case PKC_TGL_DRAG_SCRL:
@@ -745,8 +763,10 @@ static void process_wheel(uint8_t index, int16_t delta, int16_t deadzone_distanc
     }
     bool vertical = (role == WHEEL_ROLE_VSCROLL);
 
+    scroll_mode_t mode = get_scroll_mode(vertical);
+
     /* ---- Arrow mode (toggled on the control layer). Same on every OS. ---- */
-    if( vertical ? user_config.vertical_scroll_arrows : user_config.horizontal_scroll_arrows ) {
+    if( mode == SCROLL_ARROWS ) {
         int16_t tick_size = vertical ? TMAG5273_VERT_SCROLL_TICK_SIZE : TMAG5273_HORIZ_SCROLL_TICK_SIZE;
 
         wheel_arrow_tick[index] += delta;
@@ -761,8 +781,10 @@ static void process_wheel(uint8_t index, int16_t delta, int16_t deadzone_distanc
         return;
     }
 
-    /* ---- Hi-res scroll events on Windows and Linux. ---- */
-    if ( detected_host_os() == OS_WINDOWS || detected_host_os() == OS_LINUX ) {
+    bool hires_host = (detected_host_os() == OS_WINDOWS || detected_host_os() == OS_LINUX);
+
+    /* ---- Smooth hi-res scroll events on Windows and Linux. ---- */
+    if ( mode == SCROLL_SMOOTH && hires_host ) {
         if ( deadzone_distance > (TMAG5273_WHEEL_DEADZONE - 10) ||
              deadzone_distance < (-TMAG5273_WHEEL_DEADZONE + 10) ) {
             if( vertical ) {
@@ -775,17 +797,24 @@ static void process_wheel(uint8_t index, int16_t delta, int16_t deadzone_distanc
         return;
     }
 
-    /* ---- Regular scroll events on other OSes. ----
-       Certain operating systems, like MacOS, don't play well with the
-       high-res scrolling implementation. For more details, see:
-       https://github.com/qmk/qmk_firmware/issues/17585#issuecomment-2325248167 */
+    /* ---- Notched scroll: one whole wheel notch at a time. ----
+       Used in notched mode, and always on other OSes: certain operating
+       systems, like MacOS, don't play well with the high-res scrolling
+       implementation. For more details, see:
+       https://github.com/qmk/qmk_firmware/issues/17585#issuecomment-2325248167
+       Windows and Linux turn on the hi-res multiplier, so a whole notch there
+       is POINTING_DEVICE_HIRES_SCROLL_MULTIPLIER (120) units, the standard
+       WHEEL_DELTA that games expect; elsewhere it is 1. Each notch covers the
+       same wheel rotation as 120 units of smooth scrolling. */
+    int16_t notch = hires_host ? (int16_t)pointing_device_get_hires_scroll_resolution() : 1;
+
     wheel_lowres_tick[index] += delta;
     if( wheel_lowres_tick[index] > TMAG5273_LOWRES_TICK_SIZE ) {
-        if( vertical ) { mouse_report->v -= 1; } else { mouse_report->h += 1; }
+        if( vertical ) { mouse_report->v -= notch; } else { mouse_report->h += notch; }
         wheel_lowres_tick[index] = 0;
     }
     else if( wheel_lowres_tick[index] < -TMAG5273_LOWRES_TICK_SIZE ) {
-        if( vertical ) { mouse_report->v += 1; } else { mouse_report->h -= 1; }
+        if( vertical ) { mouse_report->v += notch; } else { mouse_report->h -= notch; }
         wheel_lowres_tick[index] = 0;
     }
 }

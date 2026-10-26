@@ -26,6 +26,7 @@ firmware, flash [`firmwares/aplus.uf2`](firmwares/aplus.uf2) the same way.
 | Startup layer | Right-handed (layer 0) | **Left-handed (layer 0)**, custom layout |
 | Right-handed layout | Layer 0 | Layer 1, reached with **Mirror** on the control layer |
 | Wheels | Fixed: vertical + horizontal scroll | **Remappable per layer in Vial**; default volume + vertical scroll |
+| Scroll type | Smooth hi-res only (ignored by many games) | **Notched by default**, smooth or arrows selectable |
 | LEDs | Fixed: left-handed green, control red | **Colours and brightness editable in Vial**; default left-handed red, right-handed blue, control green |
 | Configurator | VIA, with a JSON file to load | **Vial**, detected automatically |
 | Mouse gestures | Fixed | **Editable in Vial** (layer 3) |
@@ -52,8 +53,12 @@ and plug in the A+.
 - **Wheels:** each wheel is a pair of round keys under the layout:
   counter-clockwise and clockwise, for every layer.
   - Any keycode is sent once per notch (volume, media keys, arrows, macros …).
-  - **Wheel V-Scrl** / **Wheel H-Scrl** (User tab) give Ploopy's smooth scrolling.
+  - **Wheel V-Scrl** / **Wheel H-Scrl** (User tab) make it a scroll wheel.
     Put it in both slots; put it in only the counter-clockwise slot to reverse it.
+  - **Scroll type:** notched by default, one full notch at a time like a normal
+    mouse, so it works in game menus. The control layer's Toggle Vertical /
+    Horizontal Scroll Type buttons cycle notched (3 blinks) → smooth hi-res
+    (2 blinks) → arrow keys (1 blink).
 - **Gestures:** layer 3's eight keys are the eight gesture directions, going
   clockwise from the top-left key (the small arrows on the keymap). A
   transparent key keeps the built-in OS-aware action; a Vial macro (`M0`, `M1` …)
