@@ -97,6 +97,12 @@ instead (User tab), per wheel and per layer:
 Put the keycode in both of the wheel's slots (or only the counter-clockwise
 slot to reverse it). For arrow keys, put the arrow keycodes in the slots.
 
+**Scroll speed.** Scroll wheels default to 2× Ploopy's speed (one notch per
+half the wheel rotation). The **Scroll Speed** keycode (User tab) cycles
+2× → 3× → 4× → 1× and is saved; the LEDs blink once per 1×. It applies to
+notched and smooth scrolling. The control layer has no free button, so put it
+wherever you like, e.g. on layer 0 or a spare layer.
+
 ## Using Vial
 
 Open [vial.rocks](https://vial.rocks) in Chrome/Edge, or the Vial desktop app,

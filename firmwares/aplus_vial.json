@@ -87,6 +87,11 @@
       "name": "PKC_WHEEL_H_SMOOTH",
       "title": "Wheel: horizontal scroll, always smooth (hi-res)",
       "shortName": "H-Scrl\nSmooth"
+    },
+    {
+      "name": "PKC_SCROLL_SPEED",
+      "title": "Cycle scroll wheel speed 2x / 3x / 4x / 1x (LEDs blink the multiplier)",
+      "shortName": "Scroll\nSpeed"
     }
   ],
   "layouts": {

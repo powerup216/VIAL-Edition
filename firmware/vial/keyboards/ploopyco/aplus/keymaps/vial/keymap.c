@@ -120,6 +120,7 @@ typedef union {
     uint8_t config_version: 2;             /* Settings are reset once when this changes. */
     bool    vertical_smooth :1;            /* 0 = notched (default), 1 = smooth hi-res. */
     bool    horizontal_smooth :1;          /* 0 = notched (default), 1 = smooth hi-res. */
+    uint8_t scroll_speed_idx :2;           /* Index into scroll_speed_table; 0 = 2x (default). */
   };
 } user_config_t;
 
@@ -202,8 +203,15 @@ enum my_keycodes {
   PKC_WHEEL_V_NOTCHED,
   PKC_WHEEL_V_SMOOTH,
   PKC_WHEEL_H_NOTCHED,
-  PKC_WHEEL_H_SMOOTH
+  PKC_WHEEL_H_SMOOTH,
+  /* Cycle scroll speed 2x -> 3x -> 4x -> 1x (LEDs blink the multiplier). */
+  PKC_SCROLL_SPEED
 };
+
+/* Scroll speed multipliers, relative to Ploopy's stock speed. Stored as an
+   index so that 0 (fresh or older settings) means the 2x default. */
+static const uint8_t scroll_speed_table[4] = { 2, 3, 4, 1 };
+#define SCROLL_SPEED() (scroll_speed_table[user_config.scroll_speed_idx])
 
 /* Layer names. Layer 0 is the left-handed base (the default) and layer 1 the
    right-handed base. Layer 0 is always on; layer 1 sits on top of it and is
@@ -605,6 +613,14 @@ bool process_record_user(uint16_t keycode, keyrecord_t* record) {
                 }
             }
             return true;
+        case PKC_SCROLL_SPEED:
+            if (record->event.pressed) {
+                user_config.scroll_speed_idx = (user_config.scroll_speed_idx + 1) % 4;
+                save_user_config();
+                rgblight_blink_layer_repeat(OPTION_CHANGED_LAYER_COLOUR, OPTION_CHANGE_BLINK_TIMEOUT, SCROLL_SPEED());
+                dprintf("Scroll speed = %dx\n", SCROLL_SPEED());
+            }
+            return true;
         case PKC_TGL_VERT_SCRL:
         case PKC_TGL_HORIZ_SCRL:
             if (record->event.pressed) {
@@ -815,10 +831,10 @@ static void process_wheel(uint8_t index, int16_t delta, int16_t deadzone_distanc
         if ( deadzone_distance > (TMAG5273_WHEEL_DEADZONE - 10) ||
              deadzone_distance < (-TMAG5273_WHEEL_DEADZONE + 10) ) {
             if( vertical ) {
-                mouse_report->v += -delta / TMAG5273_VERTICAL_WHEEL_SPEED_DIV;
+                mouse_report->v += -delta * SCROLL_SPEED() / TMAG5273_VERTICAL_WHEEL_SPEED_DIV;
             }
             else {
-                mouse_report->h += delta / TMAG5273_HORIZONAL_WHEEL_SPEED_DIV;
+                mouse_report->h += delta * SCROLL_SPEED() / TMAG5273_HORIZONAL_WHEEL_SPEED_DIV;
             }
         }
         return;
@@ -833,16 +849,17 @@ static void process_wheel(uint8_t index, int16_t delta, int16_t deadzone_distanc
        is POINTING_DEVICE_HIRES_SCROLL_MULTIPLIER (120) units, the standard
        WHEEL_DELTA that games expect; elsewhere it is 1. Each notch covers the
        same wheel rotation as 120 units of smooth scrolling. */
-    int16_t notch = hires_host ? (int16_t)pointing_device_get_hires_scroll_resolution() : 1;
+    int16_t notch     = hires_host ? (int16_t)pointing_device_get_hires_scroll_resolution() : 1;
+    /* Rotation per notch, shrunk by the speed setting (480 at 1x, 240 at 2x). */
+    int16_t tick_size = TMAG5273_LOWRES_TICK_SIZE / SCROLL_SPEED();
 
+    /* Send every whole notch in this rotation and keep the remainder, so a
+       fast spin isn't capped at one notch per report. */
     wheel_lowres_tick[index] += delta;
-    if( wheel_lowres_tick[index] > TMAG5273_LOWRES_TICK_SIZE ) {
-        if( vertical ) { mouse_report->v -= notch; } else { mouse_report->h += notch; }
-        wheel_lowres_tick[index] = 0;
-    }
-    else if( wheel_lowres_tick[index] < -TMAG5273_LOWRES_TICK_SIZE ) {
-        if( vertical ) { mouse_report->v += notch; } else { mouse_report->h -= notch; }
-        wheel_lowres_tick[index] = 0;
+    int16_t notches = wheel_lowres_tick[index] / tick_size;
+    if( notches != 0 ) {
+        wheel_lowres_tick[index] -= notches * tick_size;
+        if( vertical ) { mouse_report->v -= notches * notch; } else { mouse_report->h += notches * notch; }
     }
 }
 

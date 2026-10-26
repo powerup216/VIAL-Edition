@@ -64,6 +64,9 @@ and plug in the A+.
     - **On the trackball:** with plain **Wheel V-Scrl / H-Scrl** on the wheel,
       the control layer's Toggle Vertical / Horizontal Scroll Type buttons cycle
       notched (3 blinks) → smooth (2 blinks) → arrow keys (1 blink).
+  - **Scroll speed:** 2× Ploopy's speed by default. Put the **Scroll Speed** key
+    (User tab) on any button; each press cycles 2× → 3× → 4× → 1×, and the LEDs
+    blink the multiplier. The setting is saved.
 - **Gestures:** layer 3's eight keys are the eight gesture directions, going
   clockwise from the top-left key (the small arrows on the keymap). A
   transparent key keeps the built-in OS-aware action; a Vial macro (`M0`, `M1` …)
